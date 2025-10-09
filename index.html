@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>카톡 스타일 채팅</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="chat-window">
+        <ul id="messages">
+            </ul>
+    </div>
+    
+    <form id="form">
+        <input id="username" type="text" placeholder="이름 입력" required>
+        <input id="input" autocomplete="off" placeholder="메시지 입력..." required />
+        <button type="submit">전송</button>
+    </form>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
