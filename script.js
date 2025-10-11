@@ -1,6 +1,6 @@
 // **백엔드 서버 주소로 변경하세요!**
 // Render 배포 후 얻게 될 주소 (예: https://my-chat-server.onrender.com)
-const SERVER_URL = "YOUR_RENDER_SERVER_URL"; 
+const SERVER_URL = "https://yscs-server.onrender.com"; 
 const socket = io(SERVER_URL);
 
 const form = document.getElementById('form');
