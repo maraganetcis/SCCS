@@ -3,8 +3,10 @@ import {
   getAuth,
   GoogleAuthProvider,
   createUserWithEmailAndPassword,
+  getRedirectResult,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
   signOut,
   onAuthStateChanged,
 } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
@@ -93,8 +95,23 @@ async function loginWithEmail() {
 }
 
 async function loginWithGoogle() {
-  await signInWithPopup(auth, provider);
-  showToast("Google 로그인 성공");
+  try {
+    await signInWithPopup(auth, provider);
+    showToast("Google 로그인 성공");
+  } catch (error) {
+    const fallbackCodes = [
+      "auth/popup-blocked",
+      "auth/popup-closed-by-user",
+      "auth/cancelled-popup-request",
+      "auth/operation-not-supported-in-this-environment",
+    ];
+    if (fallbackCodes.includes(error.code)) {
+      showToast("Google 리다이렉트 로그인으로 전환합니다...");
+      await signInWithRedirect(auth, provider);
+      return;
+    }
+    throw error;
+  }
 }
 
 async function completeOnboarding() {
@@ -243,7 +260,17 @@ async function sendMessage() {
 }
 
 async function bootApp() {
-  state.profile = await loadProfile(state.user.uid);
+  try {
+    state.profile = await loadProfile(state.user.uid);
+  } catch (error) {
+    console.error("profile-load-failed", error);
+    showToast("프로필을 불러오지 못했습니다. 권한/네트워크를 확인해주세요.");
+    setVisible("authGate", true);
+    setVisible("usernameGate", false);
+    setVisible("appShell", false);
+    return;
+  }
+
   if (!state.profile?.username) {
     setVisible("authGate", false);
     setVisible("appShell", false);
@@ -267,6 +294,11 @@ onAuthStateChanged(auth, async (user) => {
     return;
   }
   await bootApp();
+});
+
+getRedirectResult(auth).catch((error) => {
+  console.error("google-redirect-failed", error);
+  showToast("Google 로그인 처리 중 오류가 발생했습니다.");
 });
 
 $("signupBtn").onclick = () => registerWithEmail().catch((e) => showToast(e.message));
