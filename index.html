@@ -10,7 +10,10 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=3" />
+    <style>
+      [hidden] { display: none !important; }
+    </style>
   </head>
   <body>
     <section id="authGate" class="gate">
@@ -27,7 +30,7 @@
       </div>
     </section>
 
-    <section id="usernameGate" class="gate hidden">
+    <section id="usernameGate" class="gate hidden" hidden>
       <div class="gate-card">
         <h1>아이디 설정</h1>
         <p>처음 1회만 설정합니다. 중복된 아이디는 사용할 수 없습니다.</p>
@@ -37,7 +40,7 @@
       </div>
     </section>
 
-    <div class="app-shell hidden" id="appShell">
+    <div class="app-shell hidden" id="appShell" hidden>
       <aside class="left-panel glass">
         <div class="brand">SCCS</div>
         <div class="user-card">
