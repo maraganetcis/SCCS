@@ -46,7 +46,9 @@ function showToast(message) {
 }
 
 function setVisible(el, visible) {
-  $(el).classList.toggle("hidden", !visible);
+  const node = $(el);
+  node.classList.toggle("hidden", !visible);
+  node.hidden = !visible;
 }
 
 function threadId(a, b) {
