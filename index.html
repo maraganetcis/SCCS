@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SCCS - Premium Chat</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="left-panel glass" id="leftPanel">
+        <div class="brand">SCCS</div>
+        <div class="user-card" id="myCard">
+          <div class="avatar" id="myAvatar">🙂</div>
+          <div>
+            <h2 id="myDisplayName">로그인 필요</h2>
+            <p id="myTag">@guest</p>
+          </div>
+        </div>
+
+        <div class="section-title">친구</div>
+        <div class="friend-list" id="friendList"></div>
+      </aside>
+
+      <main class="chat-panel glass">
+        <header class="chat-header">
+          <div>
+            <h1 id="chatTitle">채팅을 선택하세요</h1>
+            <p id="chatSubtitle">친구를 추가하고 대화를 시작하세요.</p>
+          </div>
+          <button class="ghost" id="openProfileModal">프로필 꾸미기</button>
+        </header>
+
+        <section class="message-area" id="messageArea"></section>
+
+        <footer class="message-input-wrap">
+          <input id="messageInput" type="text" placeholder="메시지를 입력하세요..." />
+          <button id="sendBtn">전송</button>
+        </footer>
+      </main>
+
+      <aside class="right-panel glass">
+        <section>
+          <h3>시작하기</h3>
+          <p class="muted">Firebase Auth로 가입/로그인 후 아이디 기반 친구추가가 가능합니다.</p>
+        </section>
+
+        <section class="auth-section">
+          <input id="emailInput" type="email" placeholder="이메일" />
+          <input id="passwordInput" type="password" placeholder="비밀번호" />
+          <input id="usernameInput" type="text" placeholder="내 아이디 (예: minji)" />
+          <input id="displayNameInput" type="text" placeholder="표시 이름" />
+          <button id="signupBtn">회원가입</button>
+          <button class="ghost" id="loginBtn">로그인</button>
+          <button class="danger" id="logoutBtn">로그아웃</button>
+        </section>
+
+        <section>
+          <h3>친구 추가</h3>
+          <div class="row">
+            <input id="friendUsernameInput" type="text" placeholder="친구 아이디 입력" />
+            <button id="addFriendBtn">추가</button>
+          </div>
+        </section>
+
+        <section>
+          <h3>알림</h3>
+          <div id="toast" class="toast">준비 완료</div>
+        </section>
+      </aside>
+    </div>
+
+    <footer class="copyright">© by SCT Synox Studios</footer>
+
+    <dialog id="profileDialog">
+      <form method="dialog" class="profile-form">
+        <h2>프로필 꾸미기</h2>
+        <label>
+          상태 메시지
+          <input type="text" id="bioInput" placeholder="오늘도 즐거운 채팅!" />
+        </label>
+        <label>
+          테마 색상
+          <input type="color" id="themeInput" value="#7c5cff" />
+        </label>
+        <label>
+          아바타 이모지
+          <input type="text" maxlength="2" id="avatarInput" placeholder="😎" />
+        </label>
+        <menu>
+          <button value="cancel" class="ghost">취소</button>
+          <button value="default" id="saveProfileBtn">저장</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
