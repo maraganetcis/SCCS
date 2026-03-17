@@ -1,0 +1,257 @@
+:root {
+  --bg: #f4f7ff;
+  --panel: rgba(255, 255, 255, 0.82);
+  --panel-strong: #ffffff;
+  --border: rgba(91, 104, 162, 0.22);
+  --text: #1f2640;
+  --muted: #6d7697;
+  --accent: #6e61ff;
+  --danger: #ef5678;
+}
+
+* {
+  box-sizing: border-box;
+  font-family: Inter, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(circle at top left, #ffffff 0, #eff3ff 42%, #e9f0ff 100%);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 280px 1fr 340px;
+  gap: 16px;
+  padding: 16px;
+  min-height: calc(100vh - 44px);
+}
+
+.glass {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 16px 34px rgba(75, 87, 143, 0.1);
+}
+
+.left-panel,
+.right-panel {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.brand {
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.user-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel-strong);
+}
+
+.user-card h2,
+.chat-header h1 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.user-card p,
+.chat-header p,
+.muted {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #7c5cff, #24c3ff);
+  font-size: 1.3rem;
+}
+
+.section-title,
+h3 {
+  margin: 0;
+  font-size: 0.86rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--muted);
+}
+
+.friend-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: auto;
+}
+
+.friend-item {
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 10px;
+  background: #ffffff;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.friend-item.active {
+  border-color: var(--accent);
+}
+
+.chat-panel {
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  min-height: calc(100vh - 76px);
+}
+
+.chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.message-area {
+  flex: 1;
+  overflow: auto;
+  padding: 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.message {
+  max-width: 70%;
+  padding: 10px 12px;
+  border-radius: 14px;
+  line-height: 1.35;
+  box-shadow: 0 8px 18px rgba(86, 98, 154, 0.12);
+}
+
+.me {
+  align-self: flex-end;
+  background: linear-gradient(135deg, var(--accent), #9d7dff);
+  color: #fff;
+}
+
+.them {
+  align-self: flex-start;
+  background: #ffffff;
+}
+
+.message-input-wrap {
+  display: flex;
+  gap: 10px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+input,
+button {
+  border: none;
+  border-radius: 12px;
+  padding: 11px 13px;
+  font-size: 0.92rem;
+}
+
+input {
+  background: #fff;
+  color: var(--text);
+  outline: none;
+  width: 100%;
+  border: 1px solid rgba(118, 129, 178, 0.28);
+}
+
+button {
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+button.ghost {
+  background: #e8edff;
+  color: #495079;
+}
+
+button.danger {
+  background: var(--danger);
+}
+
+.auth-section,
+.right-panel section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+}
+
+.toast {
+  background: #f8faff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  font-size: 0.82rem;
+}
+
+#profileDialog {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: #ffffff;
+  color: var(--text);
+}
+
+.profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 280px;
+}
+
+menu {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+}
+
+.copyright {
+  text-align: center;
+  color: #7a83a8;
+  font-size: 0.86rem;
+  padding: 0 0 14px;
+}
+
+@media (max-width: 1080px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  .chat-panel {
+    min-height: 70vh;
+  }
+}
