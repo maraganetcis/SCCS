@@ -1,8 +1,10 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
 import {
   getAuth,
+  GoogleAuthProvider,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  signInWithPopup,
   signOut,
   onAuthStateChanged,
 } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
@@ -34,17 +36,17 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const provider = new GoogleAuthProvider();
 
 const $ = (id) => document.getElementById(id);
-const state = {
-  user: null,
-  profile: null,
-  selectedFriend: null,
-  unsubscribeChat: null,
-};
+const state = { user: null, profile: null, selectedFriend: null, unsubscribeChat: null };
 
 function showToast(message) {
   $("toast").textContent = message;
+}
+
+function setVisible(el, visible) {
+  $(el).classList.toggle("hidden", !visible);
 }
 
 function threadId(a, b) {
@@ -52,87 +54,134 @@ function threadId(a, b) {
 }
 
 function applyTheme(color) {
-  document.documentElement.style.setProperty("--accent", color || "#7c5cff");
+  document.documentElement.style.setProperty("--accent", color || "#6e61ff");
+}
+
+async function loadProfile(uid) {
+  const snap = await getDoc(doc(db, "users", uid));
+  return snap.exists() ? snap.data() : null;
 }
 
 async function upsertProfile(uid, payload) {
   await setDoc(doc(db, "users", uid), payload, { merge: true });
 }
 
-async function loadMyProfile(uid) {
-  const snap = await getDoc(doc(db, "users", uid));
-  return snap.exists() ? snap.data() : null;
+async function usernameTaken(username, excludeUid) {
+  const normalized = username.trim().toLowerCase();
+  if (!normalized) return true;
+  const snaps = await getDocs(query(collection(db, "users"), where("username", "==", normalized)));
+  if (snaps.empty) return false;
+  return snaps.docs.some((d) => d.id !== excludeUid);
 }
 
-async function register() {
-  const email = $("emailInput").value.trim();
-  const password = $("passwordInput").value;
-  const username = $("usernameInput").value.trim().toLowerCase();
-  const displayName = $("displayNameInput").value.trim() || username;
-
-  if (!email || !password || !username) {
-    showToast("이메일, 비밀번호, 아이디를 입력해주세요.");
-    return;
-  }
-
-  const existing = await getDocs(query(collection(db, "users"), where("username", "==", username)));
-  if (!existing.empty) {
-    showToast("이미 사용 중인 아이디입니다.");
-    return;
-  }
-
-  const cred = await createUserWithEmailAndPassword(auth, email, password);
-  await upsertProfile(cred.user.uid, {
-    username,
-    displayName,
-    bio: "안녕하세요!",
-    avatar: "🙂",
-    themeColor: "#7c5cff",
-    createdAt: serverTimestamp(),
-  });
-  showToast("회원가입 완료");
+async function registerWithEmail() {
+  const email = $("authEmail").value.trim();
+  const password = $("authPassword").value;
+  if (!email || !password) return showToast("이메일/비밀번호를 입력하세요.");
+  await createUserWithEmailAndPassword(auth, email, password);
+  showToast("회원가입 완료. 아이디를 설정하세요.");
 }
 
-async function login() {
-  await signInWithEmailAndPassword(auth, $("emailInput").value.trim(), $("passwordInput").value);
+async function loginWithEmail() {
+  const email = $("authEmail").value.trim();
+  const password = $("authPassword").value;
+  if (!email || !password) return showToast("이메일/비밀번호를 입력하세요.");
+  await signInWithEmailAndPassword(auth, email, password);
   showToast("로그인 성공");
 }
 
-async function logout() {
-  await signOut(auth);
-  showToast("로그아웃됨");
+async function loginWithGoogle() {
+  await signInWithPopup(auth, provider);
+  showToast("Google 로그인 성공");
+}
+
+async function completeOnboarding() {
+  if (!state.user) return;
+  const username = $("onboardUsername").value.trim().toLowerCase();
+  const displayName = $("onboardDisplayName").value.trim();
+  if (!username) return showToast("아이디를 입력하세요.");
+  if (await usernameTaken(username, state.user.uid)) return showToast("이미 사용 중인 아이디입니다.");
+
+  await upsertProfile(state.user.uid, {
+    username,
+    displayName: displayName || username,
+    bio: "안녕하세요!",
+    avatar: "🙂",
+    themeColor: "#6e61ff",
+    createdAt: serverTimestamp(),
+  });
+  showToast("아이디 설정 완료");
+  await bootApp();
+}
+
+async function saveIdentity() {
+  if (!state.user || !state.profile) return;
+  const username = $("mpUsername").value.trim().toLowerCase();
+  const displayName = $("mpDisplayName").value.trim();
+  if (!username) return showToast("아이디는 비울 수 없습니다.");
+  if (await usernameTaken(username, state.user.uid)) return showToast("중복 아이디입니다.");
+
+  await upsertProfile(state.user.uid, {
+    username,
+    displayName: displayName || username,
+  });
+
+  state.profile.username = username;
+  state.profile.displayName = displayName || username;
+  bindProfile();
+  showToast("이름/아이디 저장 완료");
+}
+
+async function saveProfile() {
+  if (!state.user || !state.profile) return;
+  const payload = {
+    bio: $("mpBio").value.trim(),
+    avatar: $("mpAvatar").value.trim() || "🙂",
+    themeColor: $("mpTheme").value,
+  };
+  await upsertProfile(state.user.uid, payload);
+  state.profile = { ...state.profile, ...payload };
+  bindProfile();
+  showToast("프로필 저장 완료");
+}
+
+function bindProfile() {
+  if (!state.profile) return;
+  $("myDisplayName").textContent = state.profile.displayName;
+  $("myTag").textContent = `@${state.profile.username}`;
+  $("myAvatar").textContent = state.profile.avatar || "🙂";
+  $("mpDisplayName").value = state.profile.displayName || "";
+  $("mpUsername").value = state.profile.username || "";
+  $("mpBio").value = state.profile.bio || "";
+  $("mpAvatar").value = state.profile.avatar || "🙂";
+  $("mpTheme").value = state.profile.themeColor || "#6e61ff";
+  applyTheme(state.profile.themeColor);
 }
 
 async function addFriendByUsername() {
   if (!state.user || !state.profile) return;
-  const targetUsername = $("friendUsernameInput").value.trim().toLowerCase();
-  if (!targetUsername) return;
-  if (targetUsername === state.profile.username) {
-    showToast("본인은 추가할 수 없습니다.");
-    return;
-  }
+  const target = $("friendUsernameInput").value.trim().toLowerCase();
+  if (!target) return;
+  if (target === state.profile.username) return showToast("본인은 추가할 수 없습니다.");
 
-  const snap = await getDocs(query(collection(db, "users"), where("username", "==", targetUsername)));
-  if (snap.empty) {
-    showToast("해당 아이디 사용자를 찾을 수 없습니다.");
-    return;
-  }
+  const users = await getDocs(query(collection(db, "users"), where("username", "==", target)));
+  if (users.empty) return showToast("해당 아이디를 찾지 못했습니다.");
 
-  const friend = snap.docs[0];
+  const friend = users.docs[0];
   await setDoc(doc(db, "friendships", `${state.user.uid}__${friend.id}`), {
     users: [state.user.uid, friend.id],
-    usernames: [state.profile.username, targetUsername],
+    usernames: [state.profile.username, target],
     createdAt: serverTimestamp(),
   });
-  showToast("친구가 추가되었습니다.");
   $("friendUsernameInput").value = "";
+  showToast("친구 추가 완료");
+  await renderFriends();
 }
 
 async function renderFriends() {
   if (!state.user) return;
   const list = $("friendList");
   list.innerHTML = "";
-
   const snaps = await getDocs(query(collection(db, "friendships"), where("users", "array-contains", state.user.uid)));
   if (snaps.empty) {
     list.innerHTML = '<p class="muted">아직 친구가 없습니다.</p>';
@@ -140,111 +189,104 @@ async function renderFriends() {
   }
 
   for (const item of snaps.docs) {
-    const data = item.data();
-    const friendUid = data.users.find((u) => u !== state.user.uid);
-    const friendProfile = await loadMyProfile(friendUid);
-    if (!friendProfile) continue;
-
-    const div = document.createElement("button");
-    div.className = "friend-item";
-    div.innerHTML = `<strong>${friendProfile.avatar || "🙂"} ${friendProfile.displayName}</strong><br/><span class="muted">@${friendProfile.username}</span>`;
-    div.onclick = () => openChat(friendUid, friendProfile);
-    list.appendChild(div);
+    const friendUid = item.data().users.find((u) => u !== state.user.uid);
+    const friend = await loadProfile(friendUid);
+    if (!friend) continue;
+    const btn = document.createElement("button");
+    btn.className = "friend-item";
+    btn.dataset.uid = friendUid;
+    btn.innerHTML = `<strong>${friend.avatar || "🙂"} ${friend.displayName}</strong><br/><span class="muted">@${friend.username}</span>`;
+    btn.onclick = () => openChat(friendUid, friend);
+    list.appendChild(btn);
   }
 }
 
-function renderMessages(docs) {
-  const area = $("messageArea");
-  area.innerHTML = "";
-  docs.forEach((m) => {
-    const data = m.data();
-    const bubble = document.createElement("div");
-    bubble.className = `message ${data.senderUid === state.user.uid ? "me" : "them"}`;
-    bubble.textContent = data.text;
-    area.appendChild(bubble);
-  });
-  area.scrollTop = area.scrollHeight;
-}
+function openChat(friendUid, friend) {
+  state.selectedFriend = { uid: friendUid, ...friend };
+  $("chatTitle").textContent = `${friend.avatar || "🙂"} ${friend.displayName}`;
+  $("chatSubtitle").textContent = friend.bio || "";
 
-function openChat(friendUid, friendProfile) {
-  state.selectedFriend = { uid: friendUid, ...friendProfile };
-  $("chatTitle").textContent = `${friendProfile.avatar || "🙂"} ${friendProfile.displayName}`;
-  $("chatSubtitle").textContent = friendProfile.bio || "";
+  document.querySelectorAll(".friend-item").forEach((el) => {
+    el.classList.toggle("active", el.dataset.uid === friendUid);
+  });
 
   if (state.unsubscribeChat) state.unsubscribeChat();
   const id = threadId(state.user.uid, friendUid);
   const q = query(collection(db, "chats", id, "messages"), orderBy("createdAt", "asc"));
-  state.unsubscribeChat = onSnapshot(q, (snap) => renderMessages(snap.docs));
+  state.unsubscribeChat = onSnapshot(q, (snap) => {
+    const area = $("messageArea");
+    area.innerHTML = "";
+    snap.docs.forEach((d) => {
+      const m = d.data();
+      const bubble = document.createElement("div");
+      bubble.className = `message ${m.senderUid === state.user.uid ? "me" : "them"}`;
+      bubble.textContent = m.text;
+      area.appendChild(bubble);
+    });
+    area.scrollTop = area.scrollHeight;
+  });
 }
 
 async function sendMessage() {
-  if (!state.user || !state.selectedFriend) return;
-  const input = $("messageInput");
-  const text = input.value.trim();
+  if (!state.user || !state.selectedFriend) return showToast("친구를 먼저 선택하세요.");
+  const text = $("messageInput").value.trim();
   if (!text) return;
   const id = threadId(state.user.uid, state.selectedFriend.uid);
-
   await addDoc(collection(db, "chats", id, "messages"), {
     text,
     senderUid: state.user.uid,
     createdAt: serverTimestamp(),
   });
-  input.value = "";
+  $("messageInput").value = "";
 }
 
-async function saveProfile() {
-  if (!state.user) return;
-  const payload = {
-    bio: $("bioInput").value.trim() || "",
-    themeColor: $("themeInput").value,
-    avatar: $("avatarInput").value.trim() || "🙂",
-  };
-  await upsertProfile(state.user.uid, payload);
-  state.profile = { ...state.profile, ...payload };
-  bindProfileToUI();
-  showToast("프로필 저장 완료");
-}
-
-function bindProfileToUI() {
-  if (!state.profile) return;
-  $("myDisplayName").textContent = state.profile.displayName;
-  $("myTag").textContent = `@${state.profile.username}`;
-  $("myAvatar").textContent = state.profile.avatar || "🙂";
-  $("bioInput").value = state.profile.bio || "";
-  $("avatarInput").value = state.profile.avatar || "🙂";
-  $("themeInput").value = state.profile.themeColor || "#7c5cff";
-  applyTheme(state.profile.themeColor);
+async function bootApp() {
+  state.profile = await loadProfile(state.user.uid);
+  if (!state.profile?.username) {
+    setVisible("authGate", false);
+    setVisible("appShell", false);
+    setVisible("usernameGate", true);
+    return;
+  }
+  bindProfile();
+  await renderFriends();
+  setVisible("authGate", false);
+  setVisible("usernameGate", false);
+  setVisible("appShell", true);
 }
 
 onAuthStateChanged(auth, async (user) => {
   state.user = user;
   if (!user) {
     state.profile = null;
-    $("myDisplayName").textContent = "로그인 필요";
-    $("myTag").textContent = "@guest";
-    $("friendList").innerHTML = "";
-    $("messageArea").innerHTML = "";
+    setVisible("authGate", true);
+    setVisible("usernameGate", false);
+    setVisible("appShell", false);
     return;
   }
-
-  state.profile = await loadMyProfile(user.uid);
-  bindProfileToUI();
-  renderFriends();
+  await bootApp();
 });
 
-$("signupBtn").onclick = () => register().catch((e) => showToast(e.message));
-$("loginBtn").onclick = () => login().catch((e) => showToast(e.message));
-$("logoutBtn").onclick = () => logout().catch((e) => showToast(e.message));
+$("signupBtn").onclick = () => registerWithEmail().catch((e) => showToast(e.message));
+$("loginBtn").onclick = () => loginWithEmail().catch((e) => showToast(e.message));
+$("googleBtn").onclick = () => loginWithGoogle().catch((e) => showToast(e.message));
+$("completeOnboardingBtn").onclick = () => completeOnboarding().catch((e) => showToast(e.message));
 $("addFriendBtn").onclick = () => addFriendByUsername().catch((e) => showToast(e.message));
 $("sendBtn").onclick = () => sendMessage().catch((e) => showToast(e.message));
 $("messageInput").addEventListener("keydown", (e) => {
   if (e.key === "Enter") sendMessage().catch((err) => showToast(err.message));
 });
-$("openProfileModal").onclick = () => $("profileDialog").showModal();
+$("openMyPage").onclick = () => $("myPageDialog").showModal();
+$("saveIdentityBtn").onclick = (e) => {
+  e.preventDefault();
+  saveIdentity().catch((err) => showToast(err.message));
+};
 $("saveProfileBtn").onclick = (e) => {
   e.preventDefault();
   saveProfile().catch((err) => showToast(err.message));
-  $("profileDialog").close();
 };
-
-showToast("Firebase 설정값을 app.js에 입력해주세요.");
+$("logoutBtn").onclick = async (e) => {
+  e.preventDefault();
+  await signOut(auth);
+  $("myPageDialog").close();
+};
