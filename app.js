@@ -44,7 +44,12 @@ const $ = (id) => document.getElementById(id);
 const state = { user: null, profile: null, selectedFriend: null, unsubscribeChat: null };
 
 function showToast(message) {
-  $("toast").textContent = message;
+  const toast = $("toast");
+  if (toast) {
+    toast.textContent = message;
+    return;
+  }
+  console.info("toast:", message);
 }
 
 function setVisible(el, visible) {
@@ -55,6 +60,13 @@ function setVisible(el, visible) {
 
 function threadId(a, b) {
   return [a, b].sort().join("__");
+}
+
+function showOnboardingGate(message) {
+  setVisible("authGate", false);
+  setVisible("appShell", false);
+  setVisible("usernameGate", true);
+  if (message) showToast(message);
 }
 
 function applyTheme(color) {
@@ -264,17 +276,13 @@ async function bootApp() {
     state.profile = await loadProfile(state.user.uid);
   } catch (error) {
     console.error("profile-load-failed", error);
-    showToast("프로필을 불러오지 못했습니다. 권한/네트워크를 확인해주세요.");
-    setVisible("authGate", true);
-    setVisible("usernameGate", false);
-    setVisible("appShell", false);
+    state.profile = null;
+    showOnboardingGate("프로필 확인 중 문제가 있어 아이디 설정 화면으로 이동했습니다.");
     return;
   }
 
   if (!state.profile?.username) {
-    setVisible("authGate", false);
-    setVisible("appShell", false);
-    setVisible("usernameGate", true);
+    showOnboardingGate();
     return;
   }
   bindProfile();
@@ -293,7 +301,13 @@ onAuthStateChanged(auth, async (user) => {
     setVisible("appShell", false);
     return;
   }
-  await bootApp();
+
+  try {
+    await bootApp();
+  } catch (error) {
+    console.error("auth-state-boot-failed", error);
+    showOnboardingGate("로그인은 완료됐지만 화면 전환에 실패해 아이디 설정으로 이동했습니다.");
+  }
 });
 
 getRedirectResult(auth).catch((error) => {
