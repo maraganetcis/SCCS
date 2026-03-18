@@ -37,6 +37,7 @@ body { background: radial-gradient(circle at 10% 5%, #ffffff 0, var(--bg-soft) 4
 
 .gate-card h1 { margin: 0; font-size: 1.45rem; }
 .gate-card p { margin: 0 0 6px; color: var(--muted); font-size: 0.92rem; }
+.gate-notice { min-height: 20px; color: #c73c6d; font-size: 0.82rem; margin-top: 2px; }
 
 .app-shell {
   width: min(1440px, 100% - 24px);
