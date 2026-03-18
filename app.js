@@ -52,10 +52,24 @@ function showToast(message) {
   console.info("toast:", message);
 }
 
+function showNotice(id, message) {
+  const el = $(id);
+  if (el) el.textContent = message || "";
+}
+
+function showGateError(message) {
+  if (!message) return;
+  if (!$("authGate").hidden) showNotice("authNotice", message);
+  if (!$("usernameGate").hidden) showNotice("onboardNotice", message);
+  showToast(message);
+}
+
 function setVisible(el, visible) {
   const node = $(el);
   node.classList.toggle("hidden", !visible);
   node.hidden = !visible;
+  if (visible && el === "authGate") showNotice("authNotice", "");
+  if (visible && el === "usernameGate") showNotice("onboardNotice", "");
 }
 
 function threadId(a, b) {
@@ -127,22 +141,44 @@ async function loginWithGoogle() {
 }
 
 async function completeOnboarding() {
-  if (!state.user) return;
+  const user = state.user || auth.currentUser;
+  if (!user) return showGateError("로그인 상태가 만료됐습니다. 다시 로그인해주세요.");
+
+  const button = $("completeOnboardingBtn");
   const username = $("onboardUsername").value.trim().toLowerCase();
   const displayName = $("onboardDisplayName").value.trim();
-  if (!username) return showToast("아이디를 입력하세요.");
-  if (await usernameTaken(username, state.user.uid)) return showToast("이미 사용 중인 아이디입니다.");
 
-  await upsertProfile(state.user.uid, {
-    username,
-    displayName: displayName || username,
-    bio: "안녕하세요!",
-    avatar: "🙂",
-    themeColor: "#6e61ff",
-    createdAt: serverTimestamp(),
-  });
-  showToast("아이디 설정 완료");
-  await bootApp();
+  if (!username) return showGateError("아이디를 입력하세요.");
+  if (!/^[a-z0-9_]{3,20}$/.test(username)) {
+    return showGateError("아이디는 3~20자 영문/숫자/_ 만 사용할 수 있습니다.");
+  }
+
+  button.disabled = true;
+  button.textContent = "확인 중...";
+
+  try {
+    if (await usernameTaken(username, user.uid)) {
+      throw new Error("이미 사용 중인 아이디입니다.");
+    }
+
+    await upsertProfile(user.uid, {
+      username,
+      displayName: displayName || username,
+      bio: "안녕하세요!",
+      avatar: "🙂",
+      themeColor: "#6e61ff",
+      createdAt: serverTimestamp(),
+    });
+    showNotice("onboardNotice", "");
+    showToast("아이디 설정 완료");
+    await bootApp();
+  } catch (error) {
+    console.error("complete-onboarding-failed", error);
+    showGateError(error.message || "아이디 설정 중 오류가 발생했습니다.");
+  } finally {
+    button.disabled = false;
+    button.textContent = "채팅 시작하기";
+  }
 }
 
 async function saveIdentity() {
@@ -315,10 +351,10 @@ getRedirectResult(auth).catch((error) => {
   showToast("Google 로그인 처리 중 오류가 발생했습니다.");
 });
 
-$("signupBtn").onclick = () => registerWithEmail().catch((e) => showToast(e.message));
-$("loginBtn").onclick = () => loginWithEmail().catch((e) => showToast(e.message));
-$("googleBtn").onclick = () => loginWithGoogle().catch((e) => showToast(e.message));
-$("completeOnboardingBtn").onclick = () => completeOnboarding().catch((e) => showToast(e.message));
+$("signupBtn").onclick = () => registerWithEmail().catch((e) => showGateError(e.message));
+$("loginBtn").onclick = () => loginWithEmail().catch((e) => showGateError(e.message));
+$("googleBtn").onclick = () => loginWithGoogle().catch((e) => showGateError(e.message));
+$("completeOnboardingBtn").onclick = () => completeOnboarding().catch((e) => showGateError(e.message));
 $("addFriendBtn").onclick = () => addFriendByUsername().catch((e) => showToast(e.message));
 $("sendBtn").onclick = () => sendMessage().catch((e) => showToast(e.message));
 $("messageInput").addEventListener("keydown", (e) => {
