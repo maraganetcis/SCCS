@@ -57,6 +57,20 @@ function showNotice(id, message) {
   if (el) el.textContent = message || "";
 }
 
+function friendlyErrorMessage(error) {
+  const code = error?.code || "";
+  if (code.includes("permission-denied")) {
+    return "권한 오류: Firestore 보안 규칙에서 접근이 막혀 있습니다.";
+  }
+  if (code.includes("unauthenticated")) {
+    return "로그인이 필요합니다. 다시 로그인 후 시도해주세요.";
+  }
+  if (code.includes("network-request-failed")) {
+    return "네트워크 오류가 발생했습니다. 연결 상태를 확인해주세요.";
+  }
+  return error?.message || "알 수 없는 오류가 발생했습니다.";
+}
+
 function showGateError(message) {
   if (!message) return;
   if (!$("authGate").hidden) showNotice("authNotice", message);
@@ -164,6 +178,7 @@ async function completeOnboarding() {
     await upsertProfile(user.uid, {
       username,
       displayName: displayName || username,
+      displayNameLower: (displayName || username).toLowerCase(),
       bio: "안녕하세요!",
       avatar: "🙂",
       themeColor: "#6e61ff",
@@ -174,7 +189,7 @@ async function completeOnboarding() {
     await bootApp();
   } catch (error) {
     console.error("complete-onboarding-failed", error);
-    showGateError(error.message || "아이디 설정 중 오류가 발생했습니다.");
+    showGateError(friendlyErrorMessage(error));
   } finally {
     button.disabled = false;
     button.textContent = "채팅 시작하기";
@@ -191,6 +206,7 @@ async function saveIdentity() {
   await upsertProfile(state.user.uid, {
     username,
     displayName: displayName || username,
+    displayNameLower: (displayName || username).toLowerCase(),
   });
 
   state.profile.username = username;
@@ -243,6 +259,93 @@ async function addFriendByUsername() {
   $("friendUsernameInput").value = "";
   showToast("친구 추가 완료");
   await renderFriends();
+}
+
+async function addFriendByUid(friendUid, friendUsername) {
+  if (!state.user || !state.profile) return;
+  if (friendUid === state.user.uid) return showToast("본인은 추가할 수 없습니다.");
+  await setDoc(doc(db, "friendships", `${state.user.uid}__${friendUid}`), {
+    users: [state.user.uid, friendUid],
+    usernames: [state.profile.username, friendUsername],
+    createdAt: serverTimestamp(),
+  });
+  showToast("친구 추가 완료");
+  await renderFriends();
+}
+
+async function loadPublicFriends(targetUid, targetName) {
+  const list = $("publicFriendList");
+  list.innerHTML = `<p class="muted">${targetName} 님 친구 목록 불러오는 중...</p>`;
+
+  const snaps = await getDocs(query(collection(db, "friendships"), where("users", "array-contains", targetUid)));
+  if (snaps.empty) {
+    list.innerHTML = '<p class="muted">등록된 친구가 없습니다.</p>';
+    return;
+  }
+
+  const rows = [];
+  for (const item of snaps.docs) {
+    const otherUid = item.data().users.find((u) => u !== targetUid);
+    const profile = await loadProfile(otherUid);
+    if (!profile) continue;
+    rows.push(`<div class="user-result-card"><div><strong>${profile.avatar || "🙂"} ${profile.displayName}</strong><br/><span class="muted">@${profile.username}</span></div></div>`);
+  }
+  list.innerHTML = rows.join("");
+}
+
+async function searchUsers() {
+  if (!state.user) return;
+  const keywordRaw = $("searchUserInput").value.trim();
+  const keyword = keywordRaw.toLowerCase();
+  const result = $("userSearchResults");
+
+  if (!keyword) {
+    result.innerHTML = '<p class="muted">검색어를 입력해주세요.</p>';
+    return;
+  }
+
+  const byUsername = await getDocs(query(collection(db, "users"), where("username", "==", keyword)));
+  const byName = await getDocs(query(collection(db, "users"), where("displayNameLower", "==", keyword)));
+  const unique = new Map();
+  [...byUsername.docs, ...byName.docs].forEach((d) => {
+    if (d.id !== state.user.uid) unique.set(d.id, d.data());
+  });
+
+  if (!unique.size) {
+    result.innerHTML = '<p class="muted">검색 결과가 없습니다.</p>';
+    return;
+  }
+
+  result.innerHTML = "";
+  unique.forEach((profile, uid) => {
+    const row = document.createElement("div");
+    row.className = "user-result-card";
+    row.innerHTML = `<div><strong>${profile.avatar || "🙂"} ${profile.displayName}</strong><br/><span class="muted">@${profile.username}</span></div>`;
+
+    const actions = document.createElement("div");
+    actions.className = "user-result-actions";
+
+    const addBtn = document.createElement("button");
+    addBtn.textContent = "친구추가";
+    addBtn.onclick = () => addFriendByUid(uid, profile.username).catch((e) => showToast(friendlyErrorMessage(e)));
+
+    const viewBtn = document.createElement("button");
+    viewBtn.textContent = "친구보기";
+    viewBtn.className = "ghost";
+    viewBtn.onclick = () => loadPublicFriends(uid, profile.displayName).catch((e) => showToast(friendlyErrorMessage(e)));
+
+    actions.append(addBtn, viewBtn);
+    row.append(actions);
+    result.appendChild(row);
+  });
+}
+
+function switchRightTab(tab) {
+  const isSearch = tab === "search";
+  setVisible("searchTab", isSearch);
+  setVisible("quickAddTab", !isSearch);
+  $("searchTabBtn").classList.toggle("active", isSearch);
+  $("quickAddTabBtn").classList.toggle("active", !isSearch);
 }
 
 async function renderFriends() {
@@ -348,26 +451,32 @@ onAuthStateChanged(auth, async (user) => {
 
 getRedirectResult(auth).catch((error) => {
   console.error("google-redirect-failed", error);
-  showToast("Google 로그인 처리 중 오류가 발생했습니다.");
+  showToast(friendlyErrorMessage(error));
 });
 
-$("signupBtn").onclick = () => registerWithEmail().catch((e) => showGateError(e.message));
-$("loginBtn").onclick = () => loginWithEmail().catch((e) => showGateError(e.message));
-$("googleBtn").onclick = () => loginWithGoogle().catch((e) => showGateError(e.message));
-$("completeOnboardingBtn").onclick = () => completeOnboarding().catch((e) => showGateError(e.message));
-$("addFriendBtn").onclick = () => addFriendByUsername().catch((e) => showToast(e.message));
-$("sendBtn").onclick = () => sendMessage().catch((e) => showToast(e.message));
+$("signupBtn").onclick = () => registerWithEmail().catch((e) => showGateError(friendlyErrorMessage(e)));
+$("loginBtn").onclick = () => loginWithEmail().catch((e) => showGateError(friendlyErrorMessage(e)));
+$("googleBtn").onclick = () => loginWithGoogle().catch((e) => showGateError(friendlyErrorMessage(e)));
+$("completeOnboardingBtn").onclick = () => completeOnboarding().catch((e) => showGateError(friendlyErrorMessage(e)));
+$("addFriendBtn").onclick = () => addFriendByUsername().catch((e) => showToast(friendlyErrorMessage(e)));
+$("sendBtn").onclick = () => sendMessage().catch((e) => showToast(friendlyErrorMessage(e)));
 $("messageInput").addEventListener("keydown", (e) => {
-  if (e.key === "Enter") sendMessage().catch((err) => showToast(err.message));
+  if (e.key === "Enter") sendMessage().catch((err) => showToast(friendlyErrorMessage(err)));
 });
+$("searchUserBtn").onclick = () => searchUsers().catch((e) => showToast(friendlyErrorMessage(e)));
+$("searchUserInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") searchUsers().catch((err) => showToast(friendlyErrorMessage(err)));
+});
+$("searchTabBtn").onclick = () => switchRightTab("search");
+$("quickAddTabBtn").onclick = () => switchRightTab("quick");
 $("openMyPage").onclick = () => $("myPageDialog").showModal();
 $("saveIdentityBtn").onclick = (e) => {
   e.preventDefault();
-  saveIdentity().catch((err) => showToast(err.message));
+  saveIdentity().catch((err) => showToast(friendlyErrorMessage(err)));
 };
 $("saveProfileBtn").onclick = (e) => {
   e.preventDefault();
-  saveProfile().catch((err) => showToast(err.message));
+  saveProfile().catch((err) => showToast(friendlyErrorMessage(err)));
 };
 $("logoutBtn").onclick = async (e) => {
   e.preventDefault();
