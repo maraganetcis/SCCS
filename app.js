@@ -23,6 +23,9 @@ import {
   onSnapshot,
   orderBy,
   serverTimestamp,
+  startAt,
+  endAt,
+  limit,
 } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -305,10 +308,19 @@ async function searchUsers() {
   }
 
   const byUsername = await getDocs(query(collection(db, "users"), where("username", "==", keyword)));
-  const byName = await getDocs(query(collection(db, "users"), where("displayNameLower", "==", keyword)));
+  const byNameLower = await getDocs(query(collection(db, "users"), where("displayNameLower", "==", keyword)));
+  const byNamePrefix = await getDocs(
+    query(collection(db, "users"), orderBy("displayName"), startAt(keywordRaw), endAt(`${keywordRaw}`), limit(20))
+  );
+
   const unique = new Map();
-  [...byUsername.docs, ...byName.docs].forEach((d) => {
-    if (d.id !== state.user.uid) unique.set(d.id, d.data());
+  [...byUsername.docs, ...byNameLower.docs, ...byNamePrefix.docs].forEach((d) => {
+    if (d.id === state.user.uid) return;
+    const data = d.data();
+    const name = (data.displayName || "").toLowerCase();
+    if (data.username === keyword || name.includes(keyword)) {
+      unique.set(d.id, data);
+    }
   });
 
   if (!unique.size) {
