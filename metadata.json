@@ -1,0 +1,6 @@
+{
+  "name": "SCCS",
+  "description": "SCCS Premium Chat application with real-time messaging, friends list, and user profiles.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
