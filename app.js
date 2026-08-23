@@ -29,7 +29,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyA5FX6asrpW83siWWh-j9kltfIJKsY952o",
+  apiKey: "__FIREBASE_API_KEY__",
   authDomain: "sccs-sct.firebaseapp.com",
   projectId: "sccs-sct",
   storageBucket: "sccs-sct.firebasestorage.app",
@@ -37,6 +37,8 @@ const firebaseConfig = {
   appId: "1:978910466771:web:e80b2760511fe3107bba26",
   measurementId: "G-4EQDCFMKPP",
 };
+
+
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -466,8 +468,6 @@ getRedirectResult(auth).catch((error) => {
   showToast(friendlyErrorMessage(error));
 });
 
-$("signupBtn").onclick = () => registerWithEmail().catch((e) => showGateError(friendlyErrorMessage(e)));
-$("loginBtn").onclick = () => loginWithEmail().catch((e) => showGateError(friendlyErrorMessage(e)));
 $("googleBtn").onclick = () => loginWithGoogle().catch((e) => showGateError(friendlyErrorMessage(e)));
 $("completeOnboardingBtn").onclick = () => completeOnboarding().catch((e) => showGateError(friendlyErrorMessage(e)));
 $("addFriendBtn").onclick = () => addFriendByUsername().catch((e) => showToast(friendlyErrorMessage(e)));
