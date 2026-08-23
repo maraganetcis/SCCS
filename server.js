@@ -11,7 +11,9 @@ app.get('/app.js', (req, res) => {
     return res.status(404).send('Not found');
   }
   let content = fs.readFileSync(filePath, 'utf8');
-  content = content.replaceAll('__FIREBASE_API_KEY__', process.env.FIREBASE_API_KEY || 'AIzaSyA5FX6asrpW83siWWh-j9kltfIJKsY952o');
+  if (process.env.FIREBASE_API_KEY && process.env.FIREBASE_API_KEY.trim()) {
+    content = content.replace('AIzaSyA5FX6asrpW83siWWh-j9kltfIJKsY952o', process.env.FIREBASE_API_KEY.trim());
+  }
   res.type('application/javascript');
   res.send(content);
 });

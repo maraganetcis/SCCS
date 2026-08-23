@@ -29,7 +29,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
 
 const firebaseConfig = {
-  apiKey: "__FIREBASE_API_KEY__",
+  apiKey: "AIzaSyA5FX6asrpW83siWWh-j9kltfIJKsY952o",
   authDomain: "sccs-sct.firebaseapp.com",
   projectId: "sccs-sct",
   storageBucket: "sccs-sct.firebasestorage.app",
