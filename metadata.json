@@ -1,6 +1,6 @@
 {
   "name": "SCCS",
-  "description": "SCCS Premium Chat application with real-time messaging, friends list, and user profiles.",
+  "description": "SCCS 채팅서비스는 신촌중학교 학생를 주로 모두를 위한 채팅서비스로 실시간 대화를 하며 소통할 수 있는 플랫폼입니다.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
