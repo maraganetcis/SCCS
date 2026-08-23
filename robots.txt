@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://ais-pre-7qagxdnswdsg3rk35yxknh-338286565655.asia-northeast1.run.app/sitemap.xml
+Sitemap: https://sccssct.netlify.app/sitemap.xml
