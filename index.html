@@ -126,9 +126,19 @@
           </div>
         </section>
 
-        <section>
-          <h3>알림</h3>
-          <div id="toast" class="toast">준비 완료</div>
+        <section class="notification-box" style="margin-top: 14px; padding: 12px; background: var(--bg-sidebar); border-radius: var(--radius-md); border: 1px solid var(--border);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+            <h3 style="font-size: 13px; font-weight:600; display:flex; align-items:center; gap:6px;">
+              <span>🔔</span> 실시간 알림
+            </h3>
+            <span id="notifStatusBadge" style="font-size:11px; padding: 2px 6px; border-radius: 4px; background: var(--accent-soft); color: var(--accent); font-weight:600;">확인 중</span>
+          </div>
+          <p class="muted" style="font-size:12px; margin-bottom:8px; line-height: 1.4;">다른 창을 보거나 탭을 내려두어도 새 메시지가 오면 소리와 시스템 알림창으로 알려줍니다.</p>
+          <div style="display:flex; gap: 6px;">
+            <button id="enableNotifBtn" class="primary" style="flex:1; font-size:12px; padding: 6px 8px;">🔔 알림 켜기</button>
+            <button id="testNotifBtn" class="ghost" style="font-size:12px; padding: 6px 8px;">소리/알림 테스트</button>
+          </div>
+          <div id="toast" class="toast" style="margin-top: 8px;">준비 완료</div>
         </section>
       </aside>
     </div>

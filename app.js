@@ -362,6 +362,234 @@ function switchRightTab(tab) {
   $("quickAddTabBtn").classList.toggle("active", !isSearch);
 }
 
+// Notification & Audio System
+let audioCtx = null;
+let titleInterval = null;
+const originalDocTitle = document.title || "SCCS - 신촌중학교 채팅서비스";
+const friendListeners = new Map();
+
+function getAudioContext() {
+  if (!audioCtx) {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (AudioContextClass) {
+      audioCtx = new AudioContextClass();
+    }
+  }
+  if (audioCtx && audioCtx.state === "suspended") {
+    audioCtx.resume();
+  }
+  return audioCtx;
+}
+
+function playNotificationSound() {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    
+    // First soft chime (F#5 ~ 740Hz)
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = "sine";
+    osc1.frequency.setValueAtTime(740, now);
+    gain1.gain.setValueAtTime(0.18, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.22);
+
+    // Second clear resolve chime (B5 ~ 988Hz)
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = "sine";
+    osc2.frequency.setValueAtTime(988, now + 0.09);
+    gain2.gain.setValueAtTime(0.22, now + 0.09);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.09);
+    osc2.stop(now + 0.42);
+  } catch (e) {
+    console.warn("audio-play-error", e);
+  }
+}
+
+function updateNotifStatusBadge() {
+  const badge = $("notifStatusBadge");
+  const btn = $("enableNotifBtn");
+  if (!badge) return;
+
+  if (!("Notification" in window)) {
+    badge.textContent = "미지원";
+    badge.style.background = "#FEE2E2";
+    badge.style.color = "#DC2626";
+    if (btn) btn.disabled = true;
+    return;
+  }
+
+  if (Notification.permission === "granted") {
+    badge.textContent = "알림 켜짐 🔔";
+    badge.style.background = "#DCFCE7";
+    badge.style.color = "#16A34A";
+    if (btn) btn.textContent = "알림 켜짐 ✓";
+  } else if (Notification.permission === "denied") {
+    badge.textContent = "차단됨 🚫";
+    badge.style.background = "#FEE2E2";
+    badge.style.color = "#DC2626";
+    if (btn) btn.textContent = "주소창에서 허용 필요";
+  } else {
+    badge.textContent = "알림 꺼짐 🔕";
+    badge.style.background = "var(--accent-soft)";
+    badge.style.color = "var(--accent)";
+    if (btn) btn.textContent = "🔔 알림 켜기";
+  }
+}
+
+async function requestNotificationPermission() {
+  getAudioContext();
+  if (!("Notification" in window)) {
+    showToast("현재 브라우저는 웹 알림을 지원하지 않습니다.");
+    return false;
+  }
+  if (Notification.permission === "granted") {
+    showToast("알림이 이미 켜져 있습니다! 🔔");
+    playNotificationSound();
+    updateNotifStatusBadge();
+    return true;
+  }
+  try {
+    const permission = await Notification.requestPermission();
+    updateNotifStatusBadge();
+    if (permission === "granted") {
+      playNotificationSound();
+      showToast("알림이 성공적으로 활성화되었습니다! 🔔");
+      try {
+        new Notification("SCCS 채팅 알림 켜짐", {
+          body: "새 메시지가 도착하면 소리와 시스템 알림창으로 알려드립니다.",
+          icon: "favicon.svg",
+        });
+      } catch (err) {}
+      return true;
+    } else {
+      showToast("알림이 차단되었습니다. 브라우저 주소창 왼쪽 자물쇠 아이콘에서 알림을 허용해주세요.");
+      return false;
+    }
+  } catch (err) {
+    console.error("notif-req-failed", err);
+    return false;
+  }
+}
+
+function testNotification() {
+  getAudioContext();
+  playNotificationSound();
+  if ("Notification" in window && Notification.permission === "granted") {
+    try {
+      const n = new Notification("SCCS 알림 테스트 🔔", {
+        body: "알림음과 알림창이 정상적으로 작동하고 있습니다!",
+        icon: "favicon.svg",
+      });
+      n.onclick = () => {
+        window.focus();
+        n.close();
+      };
+    } catch (e) {
+      console.warn("test-notif-failed", e);
+    }
+    showToast("테스트 알림과 소리를 보냈습니다!");
+  } else {
+    showToast("먼저 '알림 켜기'를 눌러 권한을 허용해주세요!");
+    requestNotificationPermission();
+  }
+}
+
+function triggerNotification(senderName, messageText, friendUid, friendData) {
+  playNotificationSound();
+
+  if ("Notification" in window && Notification.permission === "granted") {
+    try {
+      const notif = new Notification(`${senderName}`, {
+        body: messageText,
+        icon: "favicon.svg",
+        tag: `sccs-chat-${friendUid}`,
+        renotify: true,
+      });
+      notif.onclick = () => {
+        window.focus();
+        if (friendUid && friendData) {
+          openChat(friendUid, friendData);
+        }
+        notif.close();
+      };
+    } catch (e) {
+      console.warn("notification popup error", e);
+    }
+  }
+
+  // Flash title in tab
+  if (titleInterval) clearInterval(titleInterval);
+  let step = 0;
+  titleInterval = setInterval(() => {
+    step++;
+    document.title = step % 2 === 0 ? `💬 [새 메시지] ${senderName}` : originalDocTitle;
+    if (step >= 8 || document.hasFocus()) {
+      clearInterval(titleInterval);
+      document.title = originalDocTitle;
+    }
+  }, 1000);
+}
+
+window.addEventListener("focus", () => {
+  if (titleInterval) {
+    clearInterval(titleInterval);
+    document.title = originalDocTitle;
+  }
+});
+
+function syncFriendBackgroundListeners(friends) {
+  if (!state.user || !friends) return;
+  const currentUids = new Set(friends.map((f) => f.uid));
+  for (const [uid, unsub] of friendListeners.entries()) {
+    if (!currentUids.has(uid)) {
+      unsub();
+      friendListeners.delete(uid);
+    }
+  }
+
+  friends.forEach((friend) => {
+    if (friendListeners.has(friend.uid)) return;
+    const tid = threadId(state.user.uid, friend.uid);
+    const q = query(collection(db, "chats", tid, "messages"), orderBy("createdAt", "desc"), limit(1));
+    let initial = true;
+    const unsub = onSnapshot(q, (snap) => {
+      if (initial) {
+        initial = false;
+        return;
+      }
+      snap.docChanges().forEach((change) => {
+        if (change.type === "added") {
+          const m = change.doc.data();
+          if (m.senderUid === friend.uid) {
+            const isCurrentChatVisible = state.selectedFriend?.uid === friend.uid && !document.hidden;
+            if (!isCurrentChatVisible) {
+              triggerNotification(friend.displayName || "친구", m.text, friend.uid, friend);
+              const item = document.querySelector(`.friend-item[data-uid="${friend.uid}"]`);
+              if (item && !item.querySelector(".unread-dot")) {
+                const dot = document.createElement("span");
+                dot.className = "unread-dot";
+                dot.textContent = "N";
+                item.appendChild(dot);
+              }
+            }
+          }
+        }
+      });
+    });
+    friendListeners.set(friend.uid, unsub);
+  });
+}
+
 async function renderFriends() {
   if (!state.user) return;
   const list = $("friendList");
@@ -369,13 +597,16 @@ async function renderFriends() {
   const snaps = await getDocs(query(collection(db, "friendships"), where("users", "array-contains", state.user.uid)));
   if (snaps.empty) {
     list.innerHTML = '<p class="muted">아직 친구가 없습니다.</p>';
+    syncFriendBackgroundListeners([]);
     return;
   }
 
+  const loadedFriends = [];
   for (const item of snaps.docs) {
     const friendUid = item.data().users.find((u) => u !== state.user.uid);
     const friend = await loadProfile(friendUid);
     if (!friend) continue;
+    loadedFriends.push({ uid: friendUid, ...friend });
     const btn = document.createElement("button");
     btn.className = "friend-item";
     btn.dataset.uid = friendUid;
@@ -383,6 +614,7 @@ async function renderFriends() {
     btn.onclick = () => openChat(friendUid, friend);
     list.appendChild(btn);
   }
+  syncFriendBackgroundListeners(loadedFriends);
 }
 
 function openChat(friendUid, friend) {
@@ -391,12 +623,18 @@ function openChat(friendUid, friend) {
   $("chatSubtitle").textContent = friend.bio || "";
 
   document.querySelectorAll(".friend-item").forEach((el) => {
-    el.classList.toggle("active", el.dataset.uid === friendUid);
+    const isTarget = el.dataset.uid === friendUid;
+    el.classList.toggle("active", isTarget);
+    if (isTarget) {
+      const badge = el.querySelector(".unread-dot");
+      if (badge) badge.remove();
+    }
   });
 
   if (state.unsubscribeChat) state.unsubscribeChat();
   const id = threadId(state.user.uid, friendUid);
   const q = query(collection(db, "chats", id, "messages"), orderBy("createdAt", "asc"));
+  let initial = true;
   state.unsubscribeChat = onSnapshot(q, (snap) => {
     const area = $("messageArea");
     area.innerHTML = "";
@@ -408,6 +646,18 @@ function openChat(friendUid, friend) {
       area.appendChild(bubble);
     });
     area.scrollTop = area.scrollHeight;
+
+    if (!initial) {
+      snap.docChanges().forEach((change) => {
+        if (change.type === "added") {
+          const m = change.doc.data();
+          if (m.senderUid !== state.user.uid) {
+            triggerNotification(friend.displayName || "친구", m.text, friendUid, friend);
+          }
+        }
+      });
+    }
+    initial = false;
   });
 }
 
@@ -440,6 +690,7 @@ async function bootApp() {
   }
   bindProfile();
   await renderFriends();
+  updateNotifStatusBadge();
   setVisible("authGate", false);
   setVisible("usernameGate", false);
   setVisible("appShell", true);
@@ -495,3 +746,11 @@ $("logoutBtn").onclick = async (e) => {
   await signOut(auth);
   $("myPageDialog").close();
 };
+
+const enableBtn = $("enableNotifBtn");
+if (enableBtn) enableBtn.onclick = () => requestNotificationPermission();
+
+const testBtn = $("testNotifBtn");
+if (testBtn) testBtn.onclick = () => testNotification();
+
+updateNotifStatusBadge();
