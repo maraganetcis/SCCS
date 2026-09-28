@@ -46,7 +46,15 @@ const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
 const $ = (id) => document.getElementById(id);
-const state = { user: null, profile: null, selectedFriend: null, unsubscribeChat: null, pendingMedia: null };
+const state = {
+  user: null,
+  profile: null,
+  selectedFriend: null,
+  unsubscribeChat: null,
+  pendingMedia: null,
+  currentUploadXhr: null,
+  isUploading: false,
+};
 
 function showToast(message) {
   const toast = $("toast");
@@ -679,99 +687,230 @@ function compressImage(file, maxWidth = 960, maxHeight = 960, quality = 0.75) {
   });
 }
 
-async function handleImageFile(file) {
-  if (!file) return;
-  if (!file.type.startsWith("image/")) {
-    showToast("이미지 파일만 선택해주세요.");
-    return;
-  }
-  showToast("사진 최적화 중... ⏳");
-  try {
-    const compressed = await compressImage(file);
-    state.pendingMedia = {
-      type: "image",
-      url: compressed,
-      name: file.name,
-      size: Math.round(compressed.length * 0.75),
-    };
-    $("previewThumbImg").src = compressed;
-    setVisible("previewThumbImg", true);
-    setVisible("previewFileIcon", false);
-    $("previewMediaText").textContent = file.name;
-    $("previewMediaSub").textContent = `사진 (${formatSize(state.pendingMedia.size)}) - 전송 준비 완료`;
-    setVisible("mediaPreviewBar", true);
-    showToast("사진이 준비되었습니다. 전송을 누르세요! 📷");
-  } catch (err) {
-    console.error("image-process-failed", err);
-    showToast("사진 처리에 실패했습니다. 다른 사진을 시도해주세요.");
-  }
+function isVideoFile(file) {
+  if (!file) return false;
+  const ext = (file.name.split(".").pop() || "").toLowerCase();
+  return (file.type && file.type.startsWith("video/")) || ["mp4", "mov", "webm", "avi", "mkv", "m4v", "3gp", "wmv", "flv"].includes(ext);
 }
 
-async function handleGeneralFile(file) {
+function isImageFile(file) {
+  if (!file) return false;
+  const ext = (file.name.split(".").pop() || "").toLowerCase();
+  return (file.type && file.type.startsWith("image/")) || ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp", "heic", "heif"].includes(ext);
+}
+
+async function processSelectedFile(file, mode = "auto") {
   if (!file) return;
-  const maxBytes = 26 * 1024 * 1024; // 26MB
-  if (file.size > maxBytes) {
-    showToast("파일 크기는 최대 25MB까지 전송 가능합니다.");
+  if (!state.selectedFriend) {
+    showToast("먼저 대화할 친구를 선택해주세요.");
     return;
   }
 
-  const isVideo = file.type.startsWith("video/");
-  showToast(`${isVideo ? "동영상" : "파일"} 서버 업로드 및 준비 중 (${formatSize(file.size)})... ⏳`);
+  // Cancel any existing active upload
+  if (state.currentUploadXhr) {
+    try {
+      state.currentUploadXhr.abort();
+    } catch (e) {}
+    state.currentUploadXhr = null;
+  }
 
-  try {
-    const base64Data = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result;
-        const base64 = result.substring(result.indexOf(",") + 1);
-        resolve(base64);
+  const maxBytes = 55 * 1024 * 1024; // 55MB maximum
+  if (file.size > maxBytes) {
+    showToast(`파일 용량이 너무 큽니다 (${formatSize(file.size)}). 최대 50MB 이하만 전송 가능합니다.`);
+    return;
+  }
+
+  const isImg = mode === "image" || (mode === "auto" && isImageFile(file));
+  const isVid = mode === "video" || (mode === "auto" && isVideoFile(file));
+
+  // If user selected a small image via photo button, use ultra-fast adaptive client-side compression
+  if (isImg && file.size < 8 * 1024 * 1024 && !file.name.toLowerCase().endsWith(".gif")) {
+    showToast("사진 최적화 중... ⏳");
+    try {
+      const compressed = await compressImage(file);
+      state.pendingMedia = {
+        type: "image",
+        url: compressed,
+        name: file.name,
+        size: Math.round(compressed.length * 0.75),
       };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
+      state.isUploading = false;
 
-    const res = await fetch("/api/upload", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        filename: file.name,
-        mimeType: file.type || "application/octet-stream",
-        data: base64Data,
-      }),
-    });
-
-    if (!res.ok) throw new Error("서버 업로드 실패");
-    const uploaded = await res.json();
-
-    state.pendingMedia = uploaded;
-    cacheMediaBlob(uploaded.url, file);
-
-    if (uploaded.type === "image") {
-      $("previewThumbImg").src = uploaded.url;
+      $("previewThumbImg").src = compressed;
       setVisible("previewThumbImg", true);
+      setVisible("previewThumbVideo", false);
       setVisible("previewFileIcon", false);
-    } else {
-      $("previewFileIcon").textContent = getFileIcon(uploaded.name, uploaded.mime);
+      setVisible("previewProgressBarWrap", false);
+      $("previewProgressPercent").textContent = "✓ 준비됨";
+      $("previewMediaText").textContent = file.name;
+      $("previewMediaSub").textContent = `사진 (${formatSize(state.pendingMedia.size)}) - 전송 준비 완료`;
+      setVisible("mediaPreviewBar", true);
+
+      const sendDirectBtn = $("sendMediaDirectBtn");
+      if (sendDirectBtn) {
+        sendDirectBtn.disabled = false;
+        sendDirectBtn.textContent = "전송";
+      }
+      $("sendBtn").disabled = false;
+      showToast("사진 준비 완료! [전송]을 누르세요. 📷");
+      return;
+    } catch (err) {
+      console.warn("image compression fallback to stream upload", err);
+    }
+  }
+
+  // For Videos, Files, Documents & Uncompressed Images: Stream Direct Upload
+  state.isUploading = true;
+  state.pendingMedia = null;
+
+  setVisible("mediaPreviewBar", true);
+  setVisible("previewProgressBarWrap", true);
+  $("previewProgressBar").style.width = "0%";
+  $("previewProgressPercent").textContent = "0%";
+  $("previewMediaText").textContent = file.name;
+  $("previewMediaSub").textContent = `${isVid ? "동영상" : "파일"} 서버 전송 중... (${formatSize(file.size)})`;
+
+  const sendDirectBtn = $("sendMediaDirectBtn");
+  const mainSendBtn = $("sendBtn");
+  if (sendDirectBtn) {
+    sendDirectBtn.disabled = true;
+    sendDirectBtn.textContent = "전송 중...";
+  }
+  if (mainSendBtn) {
+    mainSendBtn.disabled = true;
+  }
+
+  // Immediate thumbnail preview
+  if (isVid) {
+    try {
+      const blobUrl = URL.createObjectURL(file);
+      $("previewThumbVideo").src = blobUrl;
+      setVisible("previewThumbVideo", true);
+      setVisible("previewThumbImg", false);
+      setVisible("previewFileIcon", false);
+    } catch (e) {
+      $("previewFileIcon").textContent = "🎬";
       setVisible("previewFileIcon", true);
+      setVisible("previewThumbVideo", false);
       setVisible("previewThumbImg", false);
     }
-
-    $("previewMediaText").textContent = uploaded.name;
-    $("previewMediaSub").textContent = `${uploaded.type === "video" ? "동영상" : "파일"} (${formatSize(uploaded.size)}) - 기기 로컬 보관 준비 완료 ✓`;
-    setVisible("mediaPreviewBar", true);
-    showToast(`${uploaded.type === "video" ? "동영상" : "파일"} 준비 완료! 전송을 누르세요. 📎`);
-  } catch (err) {
-    console.error("file-upload-failed", err);
-    showToast("파일 업로드 중 오류가 발생했습니다. 다시 시도해주세요.");
+  } else if (isImg) {
+    try {
+      const blobUrl = URL.createObjectURL(file);
+      $("previewThumbImg").src = blobUrl;
+      setVisible("previewThumbImg", true);
+      setVisible("previewThumbVideo", false);
+      setVisible("previewFileIcon", false);
+    } catch (e) {
+      $("previewFileIcon").textContent = "🖼️";
+      setVisible("previewFileIcon", true);
+      setVisible("previewThumbImg", false);
+      setVisible("previewThumbVideo", false);
+    }
+  } else {
+    $("previewFileIcon").textContent = getFileIcon(file.name, file.type);
+    setVisible("previewFileIcon", true);
+    setVisible("previewThumbImg", false);
+    setVisible("previewThumbVideo", false);
   }
+
+  // Efficient direct streaming upload using XMLHttpRequest
+  const xhr = new XMLHttpRequest();
+  state.currentUploadXhr = xhr;
+
+  const uploadEndpoint = `/api/upload-stream?filename=${encodeURIComponent(file.name)}&mimeType=${encodeURIComponent(file.type || "application/octet-stream")}`;
+  xhr.open("POST", uploadEndpoint, true);
+  xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+
+  xhr.upload.onprogress = (e) => {
+    if (e.lengthComputable && e.total > 0) {
+      const percent = Math.min(100, Math.round((e.loaded / e.total) * 100));
+      $("previewProgressBar").style.width = `${percent}%`;
+      $("previewProgressPercent").textContent = `${percent}%`;
+      $("previewMediaSub").textContent = `업로드 중... ${percent}% (${formatSize(e.loaded)} / ${formatSize(e.total)})`;
+    }
+  };
+
+  xhr.onload = () => {
+    state.isUploading = false;
+    state.currentUploadXhr = null;
+
+    if (xhr.status >= 200 && xhr.status < 300) {
+      try {
+        const uploaded = JSON.parse(xhr.responseText);
+        state.pendingMedia = uploaded;
+        cacheMediaBlob(uploaded.url, file);
+
+        $("previewProgressBar").style.width = "100%";
+        $("previewProgressPercent").textContent = "✓ 완료";
+        setVisible("previewProgressBarWrap", false);
+        $("previewMediaSub").textContent = `${uploaded.type === "video" ? "동영상" : "파일"} (${formatSize(uploaded.size)}) - [전송]을 누르세요!`;
+
+        if (sendDirectBtn) {
+          sendDirectBtn.disabled = false;
+          sendDirectBtn.textContent = "전송";
+        }
+        if (mainSendBtn) {
+          mainSendBtn.disabled = false;
+        }
+
+        showToast(`${uploaded.type === "video" ? "동영상" : "파일"} 준비 완료! 전송을 누르세요. 🚀`);
+      } catch (err) {
+        console.error("upload-parse-failed", err);
+        showToast("파일 응답을 처리하는 중 문제가 발생했습니다.");
+        clearPendingMedia();
+      }
+    } else {
+      console.error("upload-failed-status", xhr.status);
+      showToast(`업로드 실패 (HTTP ${xhr.status}). 파일 형식을 확인해주세요.`);
+      clearPendingMedia();
+    }
+  };
+
+  xhr.onerror = () => {
+    state.isUploading = false;
+    state.currentUploadXhr = null;
+    showToast("네트워크 오류로 파일 전송에 실패했습니다. 다시 시도해주세요.");
+    clearPendingMedia();
+  };
+
+  xhr.onabort = () => {
+    state.isUploading = false;
+    state.currentUploadXhr = null;
+  };
+
+  xhr.send(file);
 }
 
 function clearPendingMedia() {
+  if (state.currentUploadXhr) {
+    try {
+      state.currentUploadXhr.abort();
+    } catch (e) {}
+    state.currentUploadXhr = null;
+  }
   state.pendingMedia = null;
+  state.isUploading = false;
   setVisible("mediaPreviewBar", false);
+  setVisible("previewProgressBarWrap", false);
   $("previewThumbImg").src = "";
+  $("previewThumbVideo").src = "";
+  $("previewProgressPercent").textContent = "";
+
+  const sendDirectBtn = $("sendMediaDirectBtn");
+  if (sendDirectBtn) {
+    sendDirectBtn.disabled = false;
+    sendDirectBtn.textContent = "전송";
+  }
+  const mainSendBtn = $("sendBtn");
+  if (mainSendBtn) {
+    mainSendBtn.disabled = false;
+  }
+
   const imgInput = $("imageFileInput");
   if (imgInput) imgInput.value = "";
+  const videoInput = $("videoFileInput");
+  if (videoInput) videoInput.value = "";
   const fileInput = $("mediaFileInput");
   if (fileInput) fileInput.value = "";
 }
@@ -883,21 +1022,28 @@ function appendMediaToBubble(m, bubble) {
     img.onclick = () => openLightbox(img.src);
     bubble.appendChild(img);
   } else if (media.type === "video") {
+    const videoWrap = document.createElement("div");
+    videoWrap.className = "chat-video-wrap";
+
     const video = document.createElement("video");
     video.className = "chat-video";
     video.controls = true;
     video.playsInline = true;
     video.preload = "metadata";
     video.src = media.url;
-    fetchAndCacheMedia(media.url).then((resolvedUrl) => {
-      video.src = resolvedUrl;
+    getCachedMediaBlob(media.url).then((cached) => {
+      if (cached) video.src = cached;
     });
-    bubble.appendChild(video);
 
-    const badge = document.createElement("div");
-    badge.className = "local-cache-badge";
-    badge.innerHTML = `<span>💾 기기 로컬 캐시 연동</span> • <span>${formatSize(media.size)}</span>`;
-    bubble.appendChild(badge);
+    const metaRow = document.createElement("div");
+    metaRow.className = "video-meta-row";
+    metaRow.innerHTML = `
+      <span class="video-meta-name">🎬 ${media.name || "동영상"} (${formatSize(media.size)})</span>
+      <a href="${media.url}" download="${media.name || 'video.mp4'}" class="video-dl-link" title="동영상 다운로드">💾 저장</a>
+    `;
+
+    videoWrap.append(video, metaRow);
+    bubble.appendChild(videoWrap);
   } else {
     const card = document.createElement("a");
     card.className = "chat-file-card";
@@ -981,6 +1127,7 @@ function openChat(friendUid, friend) {
 
 async function sendMessage() {
   if (!state.user || !state.selectedFriend) return showToast("친구를 먼저 선택하세요.");
+  if (state.isUploading) return showToast("파일 업로드가 진행 중입니다. 잠시만 기다려주세요... ⏳");
   const text = $("messageInput").value.trim();
   const media = state.pendingMedia;
   if (!text && !media) return;
@@ -1086,27 +1233,66 @@ updateNotifStatusBadge();
 // Media Attachment, Cancel, Drag & Drop, and Paste Listeners
 const attachImgBtn = $("attachImgBtn");
 const imgInput = $("imageFileInput");
+const attachVideoBtn = $("attachVideoBtn");
+const videoInput = $("videoFileInput");
 const attachFileBtn = $("attachFileBtn");
 const mediaFileInput = $("mediaFileInput");
 const cancelMediaBtn = $("cancelMediaBtn");
+const sendMediaDirectBtn = $("sendMediaDirectBtn");
 const closeLightBtn = $("closeLightboxBtn");
 const lightboxDialog = $("imageLightbox");
 
 if (attachImgBtn && imgInput) {
-  attachImgBtn.onclick = () => imgInput.click();
+  attachImgBtn.onclick = () => {
+    if (!state.selectedFriend) {
+      showToast("먼저 대화할 친구를 선택해주세요.");
+      return;
+    }
+    imgInput.value = "";
+    imgInput.click();
+  };
   imgInput.onchange = (e) => {
     if (e.target.files && e.target.files[0]) {
-      handleImageFile(e.target.files[0]);
+      processSelectedFile(e.target.files[0], "image");
+    }
+  };
+}
+
+if (attachVideoBtn && videoInput) {
+  attachVideoBtn.onclick = () => {
+    if (!state.selectedFriend) {
+      showToast("먼저 대화할 친구를 선택해주세요.");
+      return;
+    }
+    videoInput.value = "";
+    videoInput.click();
+  };
+  videoInput.onchange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      processSelectedFile(e.target.files[0], "video");
     }
   };
 }
 
 if (attachFileBtn && mediaFileInput) {
-  attachFileBtn.onclick = () => mediaFileInput.click();
+  attachFileBtn.onclick = () => {
+    if (!state.selectedFriend) {
+      showToast("먼저 대화할 친구를 선택해주세요.");
+      return;
+    }
+    mediaFileInput.value = "";
+    mediaFileInput.click();
+  };
   mediaFileInput.onchange = (e) => {
     if (e.target.files && e.target.files[0]) {
-      handleGeneralFile(e.target.files[0]);
+      processSelectedFile(e.target.files[0], "auto");
     }
+  };
+}
+
+if (sendMediaDirectBtn) {
+  sendMediaDirectBtn.onclick = () => {
+    sendMessage().catch((err) => showToast(friendlyErrorMessage(err)));
   };
 }
 
@@ -1134,11 +1320,7 @@ window.addEventListener("paste", (e) => {
       e.preventDefault();
       const file = item.getAsFile();
       if (!file) continue;
-      if (file.type.startsWith("image/")) {
-        handleImageFile(file);
-      } else {
-        handleGeneralFile(file);
-      }
+      processSelectedFile(file, "auto");
       break;
     }
   }
@@ -1167,12 +1349,7 @@ if (chatPanelEl) {
     }
     const files = e.dataTransfer?.files;
     if (files && files.length > 0) {
-      const file = files[0];
-      if (file.type.startsWith("image/")) {
-        handleImageFile(file);
-      } else {
-        handleGeneralFile(file);
-      }
+      processSelectedFile(files[0], "auto");
     }
   });
 }

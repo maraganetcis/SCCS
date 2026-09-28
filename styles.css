@@ -550,12 +550,63 @@ menu {
   flex-shrink: 0;
 }
 
-.preview-thumb-wrap img {
+.preview-thumb-wrap img, .preview-thumb-wrap video {
   width: 100%;
   height: 100%;
   object-fit: cover;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
+  background: #000;
+}
+
+.preview-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.preview-percent {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.preview-progress-wrap {
+  width: 100%;
+  height: 4px;
+  background: var(--bg-hover);
+  border-radius: 2px;
+  overflow: hidden;
+  margin: 3px 0;
+}
+
+.preview-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  transition: width 100ms linear;
+}
+
+.preview-send-btn {
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 150ms ease;
+}
+.preview-send-btn:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+.preview-send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .preview-file-icon {
@@ -591,15 +642,58 @@ menu {
 }
 
 /* Video Player in Chat */
+.chat-video-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+  max-width: 340px;
+}
+
 .chat-video {
-  max-width: 320px;
-  max-height: 240px;
+  width: 100%;
+  max-width: 340px;
+  max-height: 260px;
   border-radius: var(--radius-md);
   background: #000;
   outline: none;
   display: block;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  margin-top: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.video-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  opacity: 0.85;
+  padding: 0 2px;
+}
+
+.video-meta-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+}
+
+.video-dl-link {
+  color: inherit;
+  text-decoration: none;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.08);
+  transition: all 120ms ease;
+  flex-shrink: 0;
+}
+.me .video-dl-link {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+.video-dl-link:hover {
+  filter: brightness(1.2);
 }
 
 /* File Attachment Card in Chat */

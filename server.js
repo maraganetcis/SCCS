@@ -37,8 +37,56 @@ function cleanupOldUploads() {
 cleanupOldUploads();
 setInterval(cleanupOldUploads, 24 * 60 * 60 * 1000);
 
-// Middleware for large payload (up to 30MB for short videos & documents)
-app.use(express.json({ limit: '35mb' }));
+// Middleware for large payload (support up to 60MB for videos & documents)
+app.use(express.json({ limit: '60mb' }));
+app.use(express.urlencoded({ extended: true, limit: '60mb' }));
+
+// Stream upload endpoint: highly efficient direct binary streaming with zero memory overhead
+app.post('/api/upload-stream', (req, res) => {
+  try {
+    const rawFilename = decodeURIComponent(req.query.filename || req.headers['x-filename'] || 'file.bin');
+    const mimeType = decodeURIComponent(req.query.mimeType || req.headers['content-type'] || 'application/octet-stream');
+    const ext = path.extname(rawFilename) || '.bin';
+    const safeBase = path.basename(rawFilename, ext).replace(/[^a-zA-Z0-9_\-\uAC00-\uD7A3]/g, '_');
+    const uniqueName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}_${safeBase}${ext}`;
+    const targetPath = path.join(uploadsDir, uniqueName);
+
+    const writeStream = fs.createWriteStream(targetPath);
+    let totalBytes = 0;
+
+    req.on('data', (chunk) => {
+      totalBytes += chunk.length;
+    });
+
+    req.pipe(writeStream);
+
+    writeStream.on('finish', () => {
+      let type = 'file';
+      const isVideo = mimeType.startsWith('video/') || /\.(mp4|mov|webm|avi|mkv|m4v|3gp|wmv|flv)$/i.test(rawFilename);
+      const isAudio = mimeType.startsWith('audio/') || /\.(mp3|wav|ogg|m4a|aac|flac)$/i.test(rawFilename);
+      const isImg = mimeType.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|svg|bmp|heic|heif)$/i.test(rawFilename);
+      if (isImg) type = 'image';
+      else if (isVideo) type = 'video';
+      else if (isAudio) type = 'audio';
+
+      res.json({
+        url: `/uploads/${uniqueName}`,
+        name: rawFilename,
+        type,
+        mime: mimeType,
+        size: totalBytes,
+      });
+    });
+
+    writeStream.on('error', (err) => {
+      console.error('writeStream error', err);
+      res.status(500).json({ error: '서버 파일 저장 중 오류가 발생했습니다.' });
+    });
+  } catch (err) {
+    console.error('upload-stream error', err);
+    res.status(500).json({ error: '스트림 업로드 처리 중 오류가 발생했습니다.' });
+  }
+});
 
 app.post('/api/upload', (req, res) => {
   try {
@@ -56,15 +104,18 @@ app.post('/api/upload', (req, res) => {
     fs.writeFileSync(targetPath, buffer);
 
     let type = 'file';
-    if (mimeType.startsWith('image/')) type = 'image';
-    else if (mimeType.startsWith('video/')) type = 'video';
-    else if (mimeType.startsWith('audio/')) type = 'audio';
+    const isVideo = (mimeType && mimeType.startsWith('video/')) || /\.(mp4|mov|webm|avi|mkv|m4v|3gp)$/i.test(filename);
+    const isAudio = (mimeType && mimeType.startsWith('audio/')) || /\.(mp3|wav|ogg|m4a|aac)$/i.test(filename);
+    const isImg = (mimeType && mimeType.startsWith('image/')) || /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(filename);
+    if (isImg) type = 'image';
+    else if (isVideo) type = 'video';
+    else if (isAudio) type = 'audio';
 
     res.json({
       url: `/uploads/${uniqueName}`,
       name: filename,
       type,
-      mime: mimeType,
+      mime: mimeType || 'application/octet-stream',
       size: buffer.length,
     });
   } catch (err) {

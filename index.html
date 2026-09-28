@@ -95,22 +95,32 @@
 
         <div id="mediaPreviewBar" class="media-preview-bar hidden" hidden>
           <div class="preview-thumb-wrap">
-            <img id="previewThumbImg" src="" alt="미리보기" class="hidden" hidden />
+            <img id="previewThumbImg" src="" alt="사진 미리보기" class="hidden" hidden />
+            <video id="previewThumbVideo" class="preview-thumb-video hidden" hidden muted></video>
             <div id="previewFileIcon" class="preview-file-icon">📄</div>
             <button id="cancelMediaBtn" type="button" title="첨부 취소">&times;</button>
           </div>
           <div class="preview-info">
-            <span id="previewMediaText" class="preview-text">첨부 파일이 준비되었습니다</span>
-            <span id="previewMediaSub" class="preview-hint">전송 버튼을 누르면 함께 전송됩니다.</span>
+            <div class="preview-title-row">
+              <span id="previewMediaText" class="preview-text">첨부 파일 준비</span>
+              <span id="previewProgressPercent" class="preview-percent"></span>
+            </div>
+            <div id="previewProgressBarWrap" class="preview-progress-wrap hidden" hidden>
+              <div id="previewProgressBar" class="preview-progress-bar"></div>
+            </div>
+            <span id="previewMediaSub" class="preview-hint">전송 버튼을 누르면 전송됩니다.</span>
           </div>
+          <button id="sendMediaDirectBtn" type="button" class="preview-send-btn">전송</button>
         </div>
 
         <footer class="message-input-wrap">
           <input type="file" id="imageFileInput" accept="image/*" style="display:none;" />
-          <input type="file" id="mediaFileInput" accept="video/*,.pdf,.doc,.docx,.hwp,.zip,.txt,.xlsx,.pptx" style="display:none;" />
-          <button id="attachImgBtn" type="button" class="icon-btn" title="사진 첨부 (또는 Ctrl+V)">📷</button>
-          <button id="attachFileBtn" type="button" class="icon-btn" title="동영상 / 문서 / 파일 첨부 (최대 25MB)">📎</button>
-          <input id="messageInput" type="text" placeholder="메시지를 입력하거나 사진/파일을 붙여넣으세요 (Ctrl+V)..." />
+          <input type="file" id="videoFileInput" accept="video/*,video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm,.m4v,.avi,.mkv" style="display:none;" />
+          <input type="file" id="mediaFileInput" style="display:none;" />
+          <button id="attachImgBtn" type="button" class="icon-btn" title="사진 첨부 (📷)">📷</button>
+          <button id="attachVideoBtn" type="button" class="icon-btn" title="동영상 첨부 (🎬)">🎬</button>
+          <button id="attachFileBtn" type="button" class="icon-btn" title="모든 파일 / 문서 첨부 (📎)">📎</button>
+          <input id="messageInput" type="text" placeholder="메시지를 입력하거나 사진/동영상/파일을 붙여넣으세요..." />
           <button id="sendBtn">전송</button>
         </footer>
       </main>
