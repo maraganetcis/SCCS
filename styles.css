@@ -528,7 +528,7 @@ menu {
   transform: translateY(-1px);
 }
 
-.image-preview-bar {
+.image-preview-bar, .media-preview-bar {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -558,6 +558,18 @@ menu {
   border: 1px solid var(--border);
 }
 
+.preview-file-icon {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  background: var(--bg-hover);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+
 .preview-thumb-wrap button {
   position: absolute;
   top: -6px;
@@ -576,6 +588,100 @@ menu {
   padding: 0;
   cursor: pointer;
   box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+/* Video Player in Chat */
+.chat-video {
+  max-width: 320px;
+  max-height: 240px;
+  border-radius: var(--radius-md);
+  background: #000;
+  outline: none;
+  display: block;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-top: 4px;
+}
+
+/* File Attachment Card in Chat */
+.chat-file-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(15, 23, 42, 0.04);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-top: 4px;
+  text-decoration: none;
+  color: inherit;
+  transition: all 150ms ease;
+  min-width: 220px;
+  max-width: 320px;
+}
+
+.them .chat-file-card:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.me .chat-file-card {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #FFFFFF;
+}
+
+.me .chat-file-card:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.chat-file-card .file-icon {
+  font-size: 26px;
+  flex-shrink: 0;
+}
+
+.chat-file-card .file-info {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex: 1;
+}
+
+.chat-file-card .file-name {
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-file-card .file-meta {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.chat-file-card .file-download-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: white;
+  flex-shrink: 0;
+}
+
+.me .chat-file-card .file-download-badge {
+  background: #FFFFFF;
+  color: var(--accent);
+}
+
+.local-cache-badge {
+  font-size: 10px;
+  color: #10B981;
+  font-weight: 600;
+  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
 }
 
 .preview-info {

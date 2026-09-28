@@ -46,7 +46,7 @@ const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
 const $ = (id) => document.getElementById(id);
-const state = { user: null, profile: null, selectedFriend: null, unsubscribeChat: null, pendingImage: null };
+const state = { user: null, profile: null, selectedFriend: null, unsubscribeChat: null, pendingMedia: null };
 
 function showToast(message) {
   const toast = $("toast");
@@ -547,7 +547,94 @@ window.addEventListener("focus", () => {
   }
 });
 
-function compressImage(file, maxWidth = 1200, maxHeight = 1200, quality = 0.8) {
+// IndexedDB Local Storage System for long-term device caching
+const DB_NAME = "sccs_device_cache";
+const STORE_NAME = "media";
+
+function openMediaDB() {
+  return new Promise((resolve) => {
+    if (!window.indexedDB) return resolve(null);
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: "url" });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => resolve(null);
+  });
+}
+
+async function getCachedMediaBlob(url) {
+  try {
+    const db = await openMediaDB();
+    if (!db) return null;
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE_NAME, "readonly");
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.get(url);
+      req.onsuccess = () => {
+        if (req.result && req.result.blob) {
+          resolve(URL.createObjectURL(req.result.blob));
+        } else {
+          resolve(null);
+        }
+      };
+      req.onerror = () => resolve(null);
+    });
+  } catch (e) {
+    return null;
+  }
+}
+
+async function cacheMediaBlob(url, blob) {
+  try {
+    const db = await openMediaDB();
+    if (!db) return;
+    const tx = db.transaction(STORE_NAME, "readwrite");
+    const store = tx.objectStore(STORE_NAME);
+    store.put({ url, blob, cachedAt: Date.now() });
+  } catch (e) {}
+}
+
+async function fetchAndCacheMedia(url) {
+  if (!url || url.startsWith("data:") || url.startsWith("blob:")) return url;
+  try {
+    const cached = await getCachedMediaBlob(url);
+    if (cached) return cached;
+    fetch(url)
+      .then((r) => r.blob())
+      .then((blob) => cacheMediaBlob(url, blob))
+      .catch(() => {});
+    return url;
+  } catch (e) {
+    return url;
+  }
+}
+
+function formatSize(bytes) {
+  if (!bytes || bytes <= 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+}
+
+function getFileIcon(name = "", mime = "") {
+  const ext = (name.split(".").pop() || "").toLowerCase();
+  if (mime.startsWith("video/") || ["mp4", "webm", "mov", "avi", "mkv"].includes(ext)) return "🎬";
+  if (mime.startsWith("audio/") || ["mp3", "wav", "ogg", "m4a"].includes(ext)) return "🎵";
+  if (ext === "pdf") return "📕";
+  if (["doc", "docx", "hwp"].includes(ext)) return "📝";
+  if (["xls", "xlsx", "csv"].includes(ext)) return "📊";
+  if (["ppt", "pptx"].includes(ext)) return "📑";
+  if (["zip", "rar", "7z", "tar", "gz"].includes(ext)) return "🗜️";
+  if (["js", "ts", "html", "css", "py", "json"].includes(ext)) return "💻";
+  return "📄";
+}
+
+function compressImage(file, maxWidth = 960, maxHeight = 960, quality = 0.75) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -569,7 +656,19 @@ function compressImage(file, maxWidth = 1200, maxHeight = 1200, quality = 0.8) {
         canvas.height = height;
         const ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0, width, height);
-        const dataUrl = canvas.toDataURL("image/jpeg", quality);
+        let dataUrl = canvas.toDataURL("image/jpeg", quality);
+
+        if (dataUrl.length > 350 * 1024) {
+          const w2 = Math.min(width, 720);
+          const h2 = Math.round((height * w2) / width);
+          const canvas2 = document.createElement("canvas");
+          canvas2.width = w2;
+          canvas2.height = h2;
+          const ctx2 = canvas2.getContext("2d");
+          ctx2.drawImage(img, 0, 0, w2, h2);
+          dataUrl = canvas2.toDataURL("image/jpeg", 0.6);
+        }
+
         resolve(dataUrl);
       };
       img.onerror = reject;
@@ -583,15 +682,24 @@ function compressImage(file, maxWidth = 1200, maxHeight = 1200, quality = 0.8) {
 async function handleImageFile(file) {
   if (!file) return;
   if (!file.type.startsWith("image/")) {
-    showToast("이미지 파일만 전송할 수 있습니다.");
+    showToast("이미지 파일만 선택해주세요.");
     return;
   }
-  showToast("사진 준비 중... ⏳");
+  showToast("사진 최적화 중... ⏳");
   try {
     const compressed = await compressImage(file);
-    state.pendingImage = compressed;
+    state.pendingMedia = {
+      type: "image",
+      url: compressed,
+      name: file.name,
+      size: Math.round(compressed.length * 0.75),
+    };
     $("previewThumbImg").src = compressed;
-    setVisible("imagePreviewBar", true);
+    setVisible("previewThumbImg", true);
+    setVisible("previewFileIcon", false);
+    $("previewMediaText").textContent = file.name;
+    $("previewMediaSub").textContent = `사진 (${formatSize(state.pendingMedia.size)}) - 전송 준비 완료`;
+    setVisible("mediaPreviewBar", true);
     showToast("사진이 준비되었습니다. 전송을 누르세요! 📷");
   } catch (err) {
     console.error("image-process-failed", err);
@@ -599,11 +707,72 @@ async function handleImageFile(file) {
   }
 }
 
-function clearPendingImage() {
-  state.pendingImage = null;
-  setVisible("imagePreviewBar", false);
+async function handleGeneralFile(file) {
+  if (!file) return;
+  const maxBytes = 26 * 1024 * 1024; // 26MB
+  if (file.size > maxBytes) {
+    showToast("파일 크기는 최대 25MB까지 전송 가능합니다.");
+    return;
+  }
+
+  const isVideo = file.type.startsWith("video/");
+  showToast(`${isVideo ? "동영상" : "파일"} 서버 업로드 및 준비 중 (${formatSize(file.size)})... ⏳`);
+
+  try {
+    const base64Data = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result;
+        const base64 = result.substring(result.indexOf(",") + 1);
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        filename: file.name,
+        mimeType: file.type || "application/octet-stream",
+        data: base64Data,
+      }),
+    });
+
+    if (!res.ok) throw new Error("서버 업로드 실패");
+    const uploaded = await res.json();
+
+    state.pendingMedia = uploaded;
+    cacheMediaBlob(uploaded.url, file);
+
+    if (uploaded.type === "image") {
+      $("previewThumbImg").src = uploaded.url;
+      setVisible("previewThumbImg", true);
+      setVisible("previewFileIcon", false);
+    } else {
+      $("previewFileIcon").textContent = getFileIcon(uploaded.name, uploaded.mime);
+      setVisible("previewFileIcon", true);
+      setVisible("previewThumbImg", false);
+    }
+
+    $("previewMediaText").textContent = uploaded.name;
+    $("previewMediaSub").textContent = `${uploaded.type === "video" ? "동영상" : "파일"} (${formatSize(uploaded.size)}) - 기기 로컬 보관 준비 완료 ✓`;
+    setVisible("mediaPreviewBar", true);
+    showToast(`${uploaded.type === "video" ? "동영상" : "파일"} 준비 완료! 전송을 누르세요. 📎`);
+  } catch (err) {
+    console.error("file-upload-failed", err);
+    showToast("파일 업로드 중 오류가 발생했습니다. 다시 시도해주세요.");
+  }
+}
+
+function clearPendingMedia() {
+  state.pendingMedia = null;
+  setVisible("mediaPreviewBar", false);
   $("previewThumbImg").src = "";
-  const fileInput = $("imageFileInput");
+  const imgInput = $("imageFileInput");
+  if (imgInput) imgInput.value = "";
+  const fileInput = $("mediaFileInput");
   if (fileInput) fileInput.value = "";
 }
 
@@ -615,6 +784,16 @@ function openLightbox(src) {
 
 function closeLightbox() {
   $("imageLightbox").close();
+}
+
+function getMediaNotificationText(m) {
+  if (m.media) {
+    if (m.media.type === "video") return "🎬 [동영상을 보냈습니다]";
+    if (m.media.type === "image") return "📷 [사진을 보냈습니다]";
+    return `📎 [파일: ${m.media.name || "첨부파일"}]`;
+  }
+  if (m.imageUrl) return "📷 [사진을 보냈습니다]";
+  return m.text || "새 메시지";
 }
 
 function syncFriendBackgroundListeners(friends) {
@@ -643,7 +822,7 @@ function syncFriendBackgroundListeners(friends) {
           if (m.senderUid === friend.uid) {
             const isCurrentChatVisible = state.selectedFriend?.uid === friend.uid && !document.hidden;
             if (!isCurrentChatVisible) {
-              const notifMsg = m.imageUrl && !m.text ? "📷 [사진을 보냈습니다]" : (m.text || "사진");
+              const notifMsg = getMediaNotificationText(m);
               triggerNotification(friend.displayName || "친구", notifMsg, friend.uid, friend);
               const item = document.querySelector(`.friend-item[data-uid="${friend.uid}"]`);
               if (item && !item.querySelector(".unread-dot")) {
@@ -688,11 +867,69 @@ async function renderFriends() {
   syncFriendBackgroundListeners(loadedFriends);
 }
 
+function appendMediaToBubble(m, bubble) {
+  const media = m.media || (m.imageUrl ? { type: "image", url: m.imageUrl, name: "사진" } : null);
+  if (!media) return;
+
+  if (media.type === "image") {
+    const img = document.createElement("img");
+    img.className = "chat-img";
+    img.alt = media.name || "사진";
+    img.loading = "lazy";
+    img.src = media.url;
+    fetchAndCacheMedia(media.url).then((resolvedUrl) => {
+      img.src = resolvedUrl;
+    });
+    img.onclick = () => openLightbox(img.src);
+    bubble.appendChild(img);
+  } else if (media.type === "video") {
+    const video = document.createElement("video");
+    video.className = "chat-video";
+    video.controls = true;
+    video.playsInline = true;
+    video.preload = "metadata";
+    video.src = media.url;
+    fetchAndCacheMedia(media.url).then((resolvedUrl) => {
+      video.src = resolvedUrl;
+    });
+    bubble.appendChild(video);
+
+    const badge = document.createElement("div");
+    badge.className = "local-cache-badge";
+    badge.innerHTML = `<span>💾 기기 로컬 캐시 연동</span> • <span>${formatSize(media.size)}</span>`;
+    bubble.appendChild(badge);
+  } else {
+    const card = document.createElement("a");
+    card.className = "chat-file-card";
+    card.href = media.url;
+    card.download = media.name || "download";
+    card.target = "_blank";
+
+    const icon = document.createElement("span");
+    icon.className = "file-icon";
+    icon.textContent = getFileIcon(media.name || "", media.mime || "");
+
+    const info = document.createElement("div");
+    info.className = "file-info";
+    info.innerHTML = `
+      <span class="file-name">${media.name || "첨부 파일"}</span>
+      <span class="file-meta">${formatSize(media.size)} • 💾 기기 보관 지원</span>
+    `;
+
+    const dl = document.createElement("span");
+    dl.className = "file-download-badge";
+    dl.textContent = "다운로드";
+
+    card.append(icon, info, dl);
+    bubble.appendChild(card);
+  }
+}
+
 function openChat(friendUid, friend) {
   state.selectedFriend = { uid: friendUid, ...friend };
   $("chatTitle").textContent = `${friend.avatar || "🙂"} ${friend.displayName}`;
   $("chatSubtitle").textContent = friend.bio || "";
-  clearPendingImage();
+  clearPendingMedia();
 
   document.querySelectorAll(".friend-item").forEach((el) => {
     const isTarget = el.dataset.uid === friendUid;
@@ -715,19 +952,12 @@ function openChat(friendUid, friend) {
       const bubble = document.createElement("div");
       bubble.className = `message ${m.senderUid === state.user.uid ? "me" : "them"}`;
       
-      if (m.imageUrl) {
-        const img = document.createElement("img");
-        img.src = m.imageUrl;
-        img.className = "chat-img";
-        img.alt = "사진";
-        img.loading = "lazy";
-        img.onclick = () => openLightbox(m.imageUrl);
-        bubble.appendChild(img);
-      }
+      appendMediaToBubble(m, bubble);
+
       if (m.text) {
         const textSpan = document.createElement("div");
         textSpan.textContent = m.text;
-        if (m.imageUrl) textSpan.style.marginTop = "6px";
+        if (m.media || m.imageUrl) textSpan.style.marginTop = "6px";
         bubble.appendChild(textSpan);
       }
       area.appendChild(bubble);
@@ -739,7 +969,7 @@ function openChat(friendUid, friend) {
         if (change.type === "added") {
           const m = change.doc.data();
           if (m.senderUid !== state.user.uid) {
-            const notifMsg = m.imageUrl && !m.text ? "📷 [사진을 보냈습니다]" : (m.text || "사진");
+            const notifMsg = getMediaNotificationText(m);
             triggerNotification(friend.displayName || "친구", notifMsg, friendUid, friend);
           }
         }
@@ -752,11 +982,11 @@ function openChat(friendUid, friend) {
 async function sendMessage() {
   if (!state.user || !state.selectedFriend) return showToast("친구를 먼저 선택하세요.");
   const text = $("messageInput").value.trim();
-  const imageUrl = state.pendingImage;
-  if (!text && !imageUrl) return;
+  const media = state.pendingMedia;
+  if (!text && !media) return;
 
   const id = threadId(state.user.uid, state.selectedFriend.uid);
-  clearPendingImage();
+  clearPendingMedia();
   $("messageInput").value = "";
 
   const payload = {
@@ -764,7 +994,10 @@ async function sendMessage() {
     createdAt: serverTimestamp(),
   };
   if (text) payload.text = text;
-  if (imageUrl) payload.imageUrl = imageUrl;
+  if (media) {
+    payload.media = media;
+    if (media.type === "image") payload.imageUrl = media.url;
+  }
 
   await addDoc(collection(db, "chats", id, "messages"), payload);
 }
@@ -850,15 +1083,17 @@ if (testBtn) testBtn.onclick = () => testNotification();
 
 updateNotifStatusBadge();
 
-// Image Attachment & Drag & Drop & Paste Listeners
-const attachBtn = $("attachImgBtn");
+// Media Attachment, Cancel, Drag & Drop, and Paste Listeners
+const attachImgBtn = $("attachImgBtn");
 const imgInput = $("imageFileInput");
-const cancelImgBtn = $("cancelImageBtn");
+const attachFileBtn = $("attachFileBtn");
+const mediaFileInput = $("mediaFileInput");
+const cancelMediaBtn = $("cancelMediaBtn");
 const closeLightBtn = $("closeLightboxBtn");
 const lightboxDialog = $("imageLightbox");
 
-if (attachBtn && imgInput) {
-  attachBtn.onclick = () => imgInput.click();
+if (attachImgBtn && imgInput) {
+  attachImgBtn.onclick = () => imgInput.click();
   imgInput.onchange = (e) => {
     if (e.target.files && e.target.files[0]) {
       handleImageFile(e.target.files[0]);
@@ -866,8 +1101,17 @@ if (attachBtn && imgInput) {
   };
 }
 
-if (cancelImgBtn) {
-  cancelImgBtn.onclick = () => clearPendingImage();
+if (attachFileBtn && mediaFileInput) {
+  attachFileBtn.onclick = () => mediaFileInput.click();
+  mediaFileInput.onchange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      handleGeneralFile(e.target.files[0]);
+    }
+  };
+}
+
+if (cancelMediaBtn) {
+  cancelMediaBtn.onclick = () => clearPendingMedia();
 }
 
 if (closeLightBtn) {
@@ -880,22 +1124,27 @@ if (lightboxDialog) {
   };
 }
 
-// Clipboard Paste Image (Ctrl+V / Cmd+V)
+// Clipboard Paste (Ctrl+V / Cmd+V for images and files)
 window.addEventListener("paste", (e) => {
   if (!state.selectedFriend) return;
   const items = e.clipboardData?.items;
   if (!items) return;
   for (const item of items) {
-    if (item.type.startsWith("image/")) {
+    if (item.kind === "file") {
       e.preventDefault();
       const file = item.getAsFile();
-      if (file) handleImageFile(file);
+      if (!file) continue;
+      if (file.type.startsWith("image/")) {
+        handleImageFile(file);
+      } else {
+        handleGeneralFile(file);
+      }
       break;
     }
   }
 });
 
-// Drag & Drop Image into Chat
+// Drag & Drop Files/Videos/Images into Chat
 const chatPanelEl = document.querySelector(".chat-panel");
 if (chatPanelEl) {
   window.addEventListener("dragover", (e) => {
@@ -917,9 +1166,15 @@ if (chatPanelEl) {
       return;
     }
     const files = e.dataTransfer?.files;
-    if (files && files.length > 0 && files[0].type.startsWith("image/")) {
-      handleImageFile(files[0]);
+    if (files && files.length > 0) {
+      const file = files[0];
+      if (file.type.startsWith("image/")) {
+        handleImageFile(file);
+      } else {
+        handleGeneralFile(file);
+      }
     }
   });
 }
+
 

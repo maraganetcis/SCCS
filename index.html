@@ -93,21 +93,24 @@
 
         <section class="message-area" id="messageArea"></section>
 
-        <div id="imagePreviewBar" class="image-preview-bar hidden" hidden>
+        <div id="mediaPreviewBar" class="media-preview-bar hidden" hidden>
           <div class="preview-thumb-wrap">
-            <img id="previewThumbImg" src="" alt="미리보기" />
-            <button id="cancelImageBtn" type="button" title="사진 취소">&times;</button>
+            <img id="previewThumbImg" src="" alt="미리보기" class="hidden" hidden />
+            <div id="previewFileIcon" class="preview-file-icon">📄</div>
+            <button id="cancelMediaBtn" type="button" title="첨부 취소">&times;</button>
           </div>
           <div class="preview-info">
-            <span id="previewImageText" class="preview-text">사진이 첨부되었습니다</span>
-            <span class="preview-hint">전송 버튼을 누르면 함께 전송됩니다.</span>
+            <span id="previewMediaText" class="preview-text">첨부 파일이 준비되었습니다</span>
+            <span id="previewMediaSub" class="preview-hint">전송 버튼을 누르면 함께 전송됩니다.</span>
           </div>
         </div>
 
         <footer class="message-input-wrap">
           <input type="file" id="imageFileInput" accept="image/*" style="display:none;" />
-          <button id="attachImgBtn" type="button" class="icon-btn" title="사진 첨부 (또는 Ctrl+V로 붙여넣기)">📷</button>
-          <input id="messageInput" type="text" placeholder="메시지를 입력하거나 사진을 붙여넣으세요 (Ctrl+V)..." />
+          <input type="file" id="mediaFileInput" accept="video/*,.pdf,.doc,.docx,.hwp,.zip,.txt,.xlsx,.pptx" style="display:none;" />
+          <button id="attachImgBtn" type="button" class="icon-btn" title="사진 첨부 (또는 Ctrl+V)">📷</button>
+          <button id="attachFileBtn" type="button" class="icon-btn" title="동영상 / 문서 / 파일 첨부 (최대 25MB)">📎</button>
+          <input id="messageInput" type="text" placeholder="메시지를 입력하거나 사진/파일을 붙여넣으세요 (Ctrl+V)..." />
           <button id="sendBtn">전송</button>
         </footer>
       </main>
