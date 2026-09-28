@@ -46,7 +46,7 @@ const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
 const $ = (id) => document.getElementById(id);
-const state = { user: null, profile: null, selectedFriend: null, unsubscribeChat: null };
+const state = { user: null, profile: null, selectedFriend: null, unsubscribeChat: null, pendingImage: null };
 
 function showToast(message) {
   const toast = $("toast");
@@ -547,6 +547,76 @@ window.addEventListener("focus", () => {
   }
 });
 
+function compressImage(file, maxWidth = 1200, maxHeight = 1200, quality = 0.8) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth || height > maxHeight) {
+          if (width > height) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL("image/jpeg", quality);
+        resolve(dataUrl);
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleImageFile(file) {
+  if (!file) return;
+  if (!file.type.startsWith("image/")) {
+    showToast("이미지 파일만 전송할 수 있습니다.");
+    return;
+  }
+  showToast("사진 준비 중... ⏳");
+  try {
+    const compressed = await compressImage(file);
+    state.pendingImage = compressed;
+    $("previewThumbImg").src = compressed;
+    setVisible("imagePreviewBar", true);
+    showToast("사진이 준비되었습니다. 전송을 누르세요! 📷");
+  } catch (err) {
+    console.error("image-process-failed", err);
+    showToast("사진 처리에 실패했습니다. 다른 사진을 시도해주세요.");
+  }
+}
+
+function clearPendingImage() {
+  state.pendingImage = null;
+  setVisible("imagePreviewBar", false);
+  $("previewThumbImg").src = "";
+  const fileInput = $("imageFileInput");
+  if (fileInput) fileInput.value = "";
+}
+
+function openLightbox(src) {
+  $("lightboxImg").src = src;
+  $("downloadImgLink").href = src;
+  $("imageLightbox").showModal();
+}
+
+function closeLightbox() {
+  $("imageLightbox").close();
+}
+
 function syncFriendBackgroundListeners(friends) {
   if (!state.user || !friends) return;
   const currentUids = new Set(friends.map((f) => f.uid));
@@ -573,7 +643,8 @@ function syncFriendBackgroundListeners(friends) {
           if (m.senderUid === friend.uid) {
             const isCurrentChatVisible = state.selectedFriend?.uid === friend.uid && !document.hidden;
             if (!isCurrentChatVisible) {
-              triggerNotification(friend.displayName || "친구", m.text, friend.uid, friend);
+              const notifMsg = m.imageUrl && !m.text ? "📷 [사진을 보냈습니다]" : (m.text || "사진");
+              triggerNotification(friend.displayName || "친구", notifMsg, friend.uid, friend);
               const item = document.querySelector(`.friend-item[data-uid="${friend.uid}"]`);
               if (item && !item.querySelector(".unread-dot")) {
                 const dot = document.createElement("span");
@@ -621,6 +692,7 @@ function openChat(friendUid, friend) {
   state.selectedFriend = { uid: friendUid, ...friend };
   $("chatTitle").textContent = `${friend.avatar || "🙂"} ${friend.displayName}`;
   $("chatSubtitle").textContent = friend.bio || "";
+  clearPendingImage();
 
   document.querySelectorAll(".friend-item").forEach((el) => {
     const isTarget = el.dataset.uid === friendUid;
@@ -642,7 +714,22 @@ function openChat(friendUid, friend) {
       const m = d.data();
       const bubble = document.createElement("div");
       bubble.className = `message ${m.senderUid === state.user.uid ? "me" : "them"}`;
-      bubble.textContent = m.text;
+      
+      if (m.imageUrl) {
+        const img = document.createElement("img");
+        img.src = m.imageUrl;
+        img.className = "chat-img";
+        img.alt = "사진";
+        img.loading = "lazy";
+        img.onclick = () => openLightbox(m.imageUrl);
+        bubble.appendChild(img);
+      }
+      if (m.text) {
+        const textSpan = document.createElement("div");
+        textSpan.textContent = m.text;
+        if (m.imageUrl) textSpan.style.marginTop = "6px";
+        bubble.appendChild(textSpan);
+      }
       area.appendChild(bubble);
     });
     area.scrollTop = area.scrollHeight;
@@ -652,7 +739,8 @@ function openChat(friendUid, friend) {
         if (change.type === "added") {
           const m = change.doc.data();
           if (m.senderUid !== state.user.uid) {
-            triggerNotification(friend.displayName || "친구", m.text, friendUid, friend);
+            const notifMsg = m.imageUrl && !m.text ? "📷 [사진을 보냈습니다]" : (m.text || "사진");
+            triggerNotification(friend.displayName || "친구", notifMsg, friendUid, friend);
           }
         }
       });
@@ -664,14 +752,21 @@ function openChat(friendUid, friend) {
 async function sendMessage() {
   if (!state.user || !state.selectedFriend) return showToast("친구를 먼저 선택하세요.");
   const text = $("messageInput").value.trim();
-  if (!text) return;
+  const imageUrl = state.pendingImage;
+  if (!text && !imageUrl) return;
+
   const id = threadId(state.user.uid, state.selectedFriend.uid);
-  await addDoc(collection(db, "chats", id, "messages"), {
-    text,
+  clearPendingImage();
+  $("messageInput").value = "";
+
+  const payload = {
     senderUid: state.user.uid,
     createdAt: serverTimestamp(),
-  });
-  $("messageInput").value = "";
+  };
+  if (text) payload.text = text;
+  if (imageUrl) payload.imageUrl = imageUrl;
+
+  await addDoc(collection(db, "chats", id, "messages"), payload);
 }
 
 async function bootApp() {
@@ -754,3 +849,77 @@ const testBtn = $("testNotifBtn");
 if (testBtn) testBtn.onclick = () => testNotification();
 
 updateNotifStatusBadge();
+
+// Image Attachment & Drag & Drop & Paste Listeners
+const attachBtn = $("attachImgBtn");
+const imgInput = $("imageFileInput");
+const cancelImgBtn = $("cancelImageBtn");
+const closeLightBtn = $("closeLightboxBtn");
+const lightboxDialog = $("imageLightbox");
+
+if (attachBtn && imgInput) {
+  attachBtn.onclick = () => imgInput.click();
+  imgInput.onchange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      handleImageFile(e.target.files[0]);
+    }
+  };
+}
+
+if (cancelImgBtn) {
+  cancelImgBtn.onclick = () => clearPendingImage();
+}
+
+if (closeLightBtn) {
+  closeLightBtn.onclick = () => closeLightbox();
+}
+
+if (lightboxDialog) {
+  lightboxDialog.onclick = (e) => {
+    if (e.target === lightboxDialog) closeLightbox();
+  };
+}
+
+// Clipboard Paste Image (Ctrl+V / Cmd+V)
+window.addEventListener("paste", (e) => {
+  if (!state.selectedFriend) return;
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.type.startsWith("image/")) {
+      e.preventDefault();
+      const file = item.getAsFile();
+      if (file) handleImageFile(file);
+      break;
+    }
+  }
+});
+
+// Drag & Drop Image into Chat
+const chatPanelEl = document.querySelector(".chat-panel");
+if (chatPanelEl) {
+  window.addEventListener("dragover", (e) => {
+    if (e.dataTransfer?.types?.includes("Files")) {
+      e.preventDefault();
+      chatPanelEl.classList.add("dragover");
+    }
+  });
+  window.addEventListener("dragleave", (e) => {
+    if (e.clientY <= 0 || e.clientX <= 0 || e.clientX >= window.innerWidth || e.clientY >= window.innerHeight) {
+      chatPanelEl.classList.remove("dragover");
+    }
+  });
+  window.addEventListener("drop", (e) => {
+    e.preventDefault();
+    chatPanelEl.classList.remove("dragover");
+    if (!state.selectedFriend) {
+      showToast("먼저 대화할 친구를 선택해주세요.");
+      return;
+    }
+    const files = e.dataTransfer?.files;
+    if (files && files.length > 0 && files[0].type.startsWith("image/")) {
+      handleImageFile(files[0]);
+    }
+  });
+}
+

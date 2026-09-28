@@ -93,8 +93,21 @@
 
         <section class="message-area" id="messageArea"></section>
 
+        <div id="imagePreviewBar" class="image-preview-bar hidden" hidden>
+          <div class="preview-thumb-wrap">
+            <img id="previewThumbImg" src="" alt="미리보기" />
+            <button id="cancelImageBtn" type="button" title="사진 취소">&times;</button>
+          </div>
+          <div class="preview-info">
+            <span id="previewImageText" class="preview-text">사진이 첨부되었습니다</span>
+            <span class="preview-hint">전송 버튼을 누르면 함께 전송됩니다.</span>
+          </div>
+        </div>
+
         <footer class="message-input-wrap">
-          <input id="messageInput" type="text" placeholder="메시지를 입력하세요..." />
+          <input type="file" id="imageFileInput" accept="image/*" style="display:none;" />
+          <button id="attachImgBtn" type="button" class="icon-btn" title="사진 첨부 (또는 Ctrl+V로 붙여넣기)">📷</button>
+          <input id="messageInput" type="text" placeholder="메시지를 입력하거나 사진을 붙여넣으세요 (Ctrl+V)..." />
           <button id="sendBtn">전송</button>
         </footer>
       </main>
@@ -184,6 +197,16 @@
       </form>
     </dialog>
 
-    <script type="module" src="app.js?v=5"></script>
+    <dialog id="imageLightbox" class="lightbox-dialog">
+      <div class="lightbox-box">
+        <button id="closeLightboxBtn" type="button" class="lightbox-close">&times;</button>
+        <img id="lightboxImg" src="" alt="사진 원본" />
+        <div class="lightbox-footer">
+          <a id="downloadImgLink" href="" download="sccs_image.jpg" class="download-link">💾 사진 저장</a>
+        </div>
+      </div>
+    </dialog>
+
+    <script type="module" src="app.js?v=6"></script>
   </body>
 </html>
