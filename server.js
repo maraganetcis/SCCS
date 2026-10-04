@@ -156,6 +156,14 @@ app.get('/app.js', (req, res) => {
 
 app.use(express.static(process.cwd()));
 
+// SPA fallback for routing (e.g. /@username, /feed, /chat, /u/username)
+app.get('*', (req, res) => {
+  if (req.path.includes('.') && !req.path.endsWith('.html')) {
+    return res.status(404).send('Not found');
+  }
+  res.sendFile(path.join(process.cwd(), 'index.html'));
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
 });

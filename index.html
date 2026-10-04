@@ -64,95 +64,185 @@
     </section>
 
     <div class="app-shell hidden" id="appShell" hidden>
-      <aside class="left-panel glass">
-        <div class="brand" style="display:flex; align-items:center; gap:8px;">
-          <svg class="sccs-logo" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Top Navigation Bar -->
+      <header class="app-top-nav glass">
+        <div class="nav-brand" id="navBrandLogo" role="button" tabindex="0">
+          <svg class="sccs-logo" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
           </svg>
-          SCCS
-        </div>
-        <div class="user-card">
-          <div class="avatar" id="myAvatar">🙂</div>
-          <div>
-            <h2 id="myDisplayName">-</h2>
-            <p id="myTag">@-</p>
-          </div>
+          <span class="brand-text">SCCS</span>
         </div>
 
-        <div class="section-title">친구</div>
-        <div class="friend-list" id="friendList"></div>
-      </aside>
+        <nav class="nav-menu">
+          <button id="navChatBtn" class="nav-item active" data-path="/chat">
+            <span class="nav-icon">💬</span>
+            <span class="nav-label">채팅</span>
+          </button>
+          <button id="navFeedBtn" class="nav-item" data-path="/feed">
+            <span class="nav-icon">📸</span>
+            <span class="nav-label">스토리 피드</span>
+          </button>
+          <button id="navProfileBtn" class="nav-item" data-path="/me">
+            <span class="nav-icon">👤</span>
+            <span class="nav-label">내 프로필</span>
+          </button>
+        </nav>
 
-      <main class="chat-panel glass">
-        <header class="chat-header">
-          <div>
-            <h1 id="chatTitle">채팅을 선택하세요</h1>
-            <p id="chatSubtitle">친구를 추가하고 대화를 시작하세요.</p>
-          </div>
-          <button id="openMyPage" class="ghost">마이페이지</button>
-        </header>
+        <div class="nav-actions">
+          <button id="openNewPostBtn" class="new-post-btn primary">
+            <span>➕</span> 새 게시물
+          </button>
+          <button id="topMyPageBtn" class="ghost nav-user-btn" title="마이페이지">
+            <span id="topMyAvatar" class="avatar-tiny">🙂</span>
+            <span id="topMyName">마이페이지</span>
+          </button>
+        </div>
+      </header>
 
-        <section class="message-area" id="messageArea"></section>
-
-        <div id="mediaPreviewBar" class="media-preview-bar hidden" hidden>
-          <div class="preview-thumb-wrap">
-            <img id="previewThumbImg" src="" alt="사진 미리보기" class="hidden" hidden />
-            <video id="previewThumbVideo" class="preview-thumb-video hidden" hidden muted></video>
-            <div id="previewFileIcon" class="preview-file-icon">📄</div>
-            <button id="cancelMediaBtn" type="button" title="첨부 취소">&times;</button>
-          </div>
-          <div class="preview-info">
-            <div class="preview-title-row">
-              <span id="previewMediaText" class="preview-text">첨부 파일 준비</span>
-              <span id="previewProgressPercent" class="preview-percent"></span>
+      <!-- View 1: Chat View -->
+      <div id="viewChat" class="view-panel view-chat">
+        <aside class="left-panel glass">
+          <div class="user-card" id="leftUserCard" style="cursor:pointer;" title="내 프로필 보기">
+            <div class="avatar" id="myAvatar">🙂</div>
+            <div>
+              <h2 id="myDisplayName">-</h2>
+              <p id="myTag">@-</p>
             </div>
-            <div id="previewProgressBarWrap" class="preview-progress-wrap hidden" hidden>
-              <div id="previewProgressBar" class="preview-progress-bar"></div>
+          </div>
+
+          <div class="section-title">친구</div>
+          <div class="friend-list" id="friendList"></div>
+        </aside>
+
+        <main class="chat-panel glass">
+          <header class="chat-header">
+            <div>
+              <h1 id="chatTitle">채팅을 선택하세요</h1>
+              <p id="chatSubtitle">친구를 추가하고 대화를 시작하세요.</p>
             </div>
-            <span id="previewMediaSub" class="preview-hint">전송 버튼을 누르면 전송됩니다.</span>
+            <button id="openMyPage" class="ghost">마이페이지</button>
+          </header>
+
+          <section class="message-area" id="messageArea"></section>
+
+          <div id="mediaPreviewBar" class="media-preview-bar hidden" hidden>
+            <div class="preview-thumb-wrap">
+              <img id="previewThumbImg" src="" alt="사진 미리보기" class="hidden" hidden />
+              <video id="previewThumbVideo" class="preview-thumb-video hidden" hidden muted></video>
+              <div id="previewFileIcon" class="preview-file-icon">📄</div>
+              <button id="cancelMediaBtn" type="button" title="첨부 취소">&times;</button>
+            </div>
+            <div class="preview-info">
+              <div class="preview-title-row">
+                <span id="previewMediaText" class="preview-text">첨부 파일 준비</span>
+                <span id="previewProgressPercent" class="preview-percent"></span>
+              </div>
+              <div id="previewProgressBarWrap" class="preview-progress-wrap hidden" hidden>
+                <div id="previewProgressBar" class="preview-progress-bar"></div>
+              </div>
+              <span id="previewMediaSub" class="preview-hint">전송 버튼을 누르면 전송됩니다.</span>
+            </div>
+            <button id="sendMediaDirectBtn" type="button" class="preview-send-btn">전송</button>
           </div>
-          <button id="sendMediaDirectBtn" type="button" class="preview-send-btn">전송</button>
+
+          <footer class="message-input-wrap">
+            <input type="file" id="imageFileInput" accept="image/*" style="display:none;" />
+            <input type="file" id="videoFileInput" accept="video/*,video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm,.m4v,.avi,.mkv" style="display:none;" />
+            <input type="file" id="mediaFileInput" style="display:none;" />
+            <button id="attachImgBtn" type="button" class="icon-btn" title="사진 첨부 (📷)">📷</button>
+            <button id="attachVideoBtn" type="button" class="icon-btn" title="동영상 첨부 (🎬)">🎬</button>
+            <button id="attachFileBtn" type="button" class="icon-btn" title="모든 파일 / 문서 첨부 (📎)">📎</button>
+            <input id="messageInput" type="text" placeholder="메시지를 입력하거나 사진/동영상/파일을 붙여넣으세요..." />
+            <button id="sendBtn">전송</button>
+          </footer>
+        </main>
+
+        <aside class="right-panel glass">
+          <div class="tabs">
+            <button id="searchTabBtn" class="tab-btn active">사용자 검색</button>
+            <button id="quickAddTabBtn" class="tab-btn">아이디 추가</button>
+          </div>
+
+          <section id="searchTab" class="tab-content">
+            <h3>사용자 검색</h3>
+            <p class="muted">아이디 또는 이름으로 검색해서 친구 추가하세요.</p>
+            <div class="row">
+              <input id="searchUserInput" type="text" placeholder="아이디 또는 이름" />
+              <button id="searchUserBtn">검색</button>
+            </div>
+            <div id="userSearchResults" class="result-list"></div>
+
+            <h3>선택 사용자 친구 목록</h3>
+            <div id="publicFriendList" class="result-list muted">사용자를 선택하면 표시됩니다.</div>
+          </section>
+
+          <section id="quickAddTab" class="tab-content hidden" hidden>
+            <h3>친구 추가 (아이디)</h3>
+            <div class="row">
+              <input id="friendUsernameInput" type="text" placeholder="친구 아이디 입력" />
+              <button id="addFriendBtn">추가</button>
+            </div>
+          </section>
+        </aside>
+      </div>
+
+      <!-- View 2: Feed View (Instagram-style) -->
+      <div id="viewFeed" class="view-panel view-feed hidden" hidden>
+        <div class="feed-layout">
+          <!-- Feed Composer Card -->
+          <div class="feed-composer-card glass" id="feedComposerCard">
+            <div class="composer-avatar" id="composerAvatar">🙂</div>
+            <div class="composer-input-fake" id="composerTriggerBtn">
+              사진, 동영상이나 오늘의 일상을 친구들과 공유해보세요...
+            </div>
+            <button id="composerOpenBtn" class="primary composer-btn">➕ 새 글 쓰기</button>
+          </div>
+
+          <!-- Feed Posts List -->
+          <div id="feedPostsList" class="feed-posts-list">
+            <div class="feed-loading muted">게시물을 불러오는 중입니다... ⏳</div>
+          </div>
         </div>
+      </div>
 
-        <footer class="message-input-wrap">
-          <input type="file" id="imageFileInput" accept="image/*" style="display:none;" />
-          <input type="file" id="videoFileInput" accept="video/*,video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm,.m4v,.avi,.mkv" style="display:none;" />
-          <input type="file" id="mediaFileInput" style="display:none;" />
-          <button id="attachImgBtn" type="button" class="icon-btn" title="사진 첨부 (📷)">📷</button>
-          <button id="attachVideoBtn" type="button" class="icon-btn" title="동영상 첨부 (🎬)">🎬</button>
-          <button id="attachFileBtn" type="button" class="icon-btn" title="모든 파일 / 문서 첨부 (📎)">📎</button>
-          <input id="messageInput" type="text" placeholder="메시지를 입력하거나 사진/동영상/파일을 붙여넣으세요..." />
-          <button id="sendBtn">전송</button>
-        </footer>
-      </main>
+      <!-- View 3: Profile & 3-Column Gallery View (/@username) -->
+      <div id="viewProfile" class="view-panel view-profile hidden" hidden>
+        <div class="profile-layout glass">
+          <!-- Profile Header Card -->
+          <div class="profile-hero">
+            <div class="profile-hero-avatar-wrap">
+              <div class="profile-hero-avatar" id="profileViewAvatar">🙂</div>
+            </div>
+            <div class="profile-hero-content">
+              <div class="profile-hero-name-row">
+                <h1 id="profileViewDisplayName">-</h1>
+                <span class="profile-tag" id="profileViewTag">@-</span>
+                <span class="identity-badge hidden" id="profileViewIdentity" hidden></span>
+              </div>
+              <p class="profile-bio" id="profileViewBio">소개글이 없습니다.</p>
+              
+              <div class="profile-stats">
+                <div class="stat-pill"><span id="profilePostCount">0</span> <strong>게시물</strong></div>
+                <div class="stat-pill"><span id="profileFriendCount">0</span> <strong>친구</strong></div>
+              </div>
 
-      <aside class="right-panel glass">
-        <div class="tabs">
-          <button id="searchTabBtn" class="tab-btn active">사용자 검색</button>
-          <button id="quickAddTabBtn" class="tab-btn">아이디 추가</button>
+              <div class="profile-actions-bar" id="profileActionBtns">
+                <!-- Dynamically generated action buttons -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Profile Gallery Nav -->
+          <div class="profile-gallery-header">
+            <h3><span>📸</span> 업로드한 스토리 및 사진첩</h3>
+          </div>
+
+          <!-- 3-Column Instagram Grid -->
+          <div id="profilePostGrid" class="profile-grid">
+            <!-- Grid posts -->
+          </div>
         </div>
-
-        <section id="searchTab" class="tab-content">
-          <h3>사용자 검색</h3>
-          <p class="muted">아이디 또는 이름으로 검색해서 친구 추가하세요.</p>
-          <div class="row">
-            <input id="searchUserInput" type="text" placeholder="아이디 또는 이름" />
-            <button id="searchUserBtn">검색</button>
-          </div>
-          <div id="userSearchResults" class="result-list"></div>
-
-          <h3>선택 사용자 친구 목록</h3>
-          <div id="publicFriendList" class="result-list muted">사용자를 선택하면 표시됩니다.</div>
-        </section>
-
-        <section id="quickAddTab" class="tab-content hidden" hidden>
-          <h3>친구 추가 (아이디)</h3>
-          <div class="row">
-            <input id="friendUsernameInput" type="text" placeholder="친구 아이디 입력" />
-            <button id="addFriendBtn">추가</button>
-          </div>
-        </section>
-      </aside>
+      </div>
     </div>
 
     <footer class="copyright">© by SCT Synox Studios</footer>
@@ -196,6 +286,67 @@
           <button id="logoutBtn" class="danger">로그아웃</button>
         </menu>
       </form>
+    </dialog>
+
+    <!-- Create Post Dialog (Instagram/Kakao Story style) -->
+    <dialog id="newPostDialog" class="post-composer-dialog">
+      <div class="composer-modal-box glass">
+        <header class="composer-modal-header">
+          <h3><span>✨</span> 새 스토리 / 게시물 작성</h3>
+          <button id="closePostModalBtn" type="button" class="close-x-btn">&times;</button>
+        </header>
+
+        <div class="composer-author-bar">
+          <div class="avatar-small" id="postModalAvatar">🙂</div>
+          <div>
+            <strong id="postModalDisplayName">작성자</strong>
+            <span class="muted" id="postModalTag" style="font-size:12px; margin-left:4px;">@-</span>
+          </div>
+        </div>
+
+        <textarea id="postContentInput" class="composer-textarea" placeholder="오늘 어떤 일이 있었나요? 친구들에게 들려주고 싶은 이야기나 사진, 동영상을 공유해보세요..." rows="4"></textarea>
+
+        <!-- Post Media Preview Area -->
+        <div id="postMediaPreviewWrap" class="post-media-preview-wrap hidden" hidden>
+          <div class="preview-media-container">
+            <img id="postPreviewImg" src="" alt="첨부 미리보기" class="hidden" hidden />
+            <video id="postPreviewVideo" class="hidden" hidden controls playsinline muted></video>
+            <button id="removePostMediaBtn" type="button" class="remove-media-btn" title="첨부 삭제">&times;</button>
+          </div>
+          <div id="postUploadProgressBarWrap" class="preview-progress-wrap hidden" hidden>
+            <div id="postUploadProgressBar" class="preview-progress-bar"></div>
+          </div>
+          <span id="postUploadStatusText" class="muted" style="font-size:12px; display:block; margin-top:4px;"></span>
+        </div>
+
+        <!-- Composer Footer Actions -->
+        <footer class="composer-modal-footer">
+          <div class="composer-attach-tools">
+            <input type="file" id="postImgInput" accept="image/*" style="display:none;" />
+            <input type="file" id="postVideoInput" accept="video/*,video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm,.m4v,.avi,.mkv" style="display:none;" />
+            <button id="postAddImgBtn" type="button" class="tool-btn" title="사진 추가">
+              <span>📷</span> 사진 추가
+            </button>
+            <button id="postAddVideoBtn" type="button" class="tool-btn" title="동영상 추가">
+              <span>🎬</span> 동영상 추가
+            </button>
+          </div>
+          <div class="composer-submit-wrap">
+            <button id="cancelPostBtn" type="button" class="ghost">취소</button>
+            <button id="submitPostBtn" type="button" class="primary">게시하기 🚀</button>
+          </div>
+        </footer>
+      </div>
+    </dialog>
+
+    <!-- Post Detail Dialog (for grid view or expanded feed) -->
+    <dialog id="postDetailDialog" class="post-detail-dialog">
+      <div class="post-detail-modal-box glass">
+        <button id="closePostDetailBtn" type="button" class="lightbox-close">&times;</button>
+        <div class="post-detail-layout" id="postDetailLayout">
+          <!-- Filled dynamically by JavaScript -->
+        </div>
+      </div>
     </dialog>
 
     <dialog id="imageLightbox" class="lightbox-dialog">

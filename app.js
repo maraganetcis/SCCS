@@ -14,6 +14,8 @@ import {
   getFirestore,
   doc,
   setDoc,
+  updateDoc,
+  deleteDoc,
   getDoc,
   getDocs,
   collection,
@@ -26,6 +28,8 @@ import {
   startAt,
   endAt,
   limit,
+  arrayUnion,
+  arrayRemove,
 } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
 import {
   getMessaging,
@@ -258,6 +262,14 @@ function bindProfile() {
   $("myDisplayName").textContent = state.profile.displayName;
   $("myTag").textContent = `@${state.profile.username}`;
   $("myAvatar").textContent = state.profile.avatar || "🙂";
+
+  if ($("topMyAvatar")) $("topMyAvatar").textContent = state.profile.avatar || "🙂";
+  if ($("topMyName")) $("topMyName").textContent = state.profile.displayName || "마이페이지";
+  if ($("composerAvatar")) $("composerAvatar").textContent = state.profile.avatar || "🙂";
+  if ($("postModalAvatar")) $("postModalAvatar").textContent = state.profile.avatar || "🙂";
+  if ($("postModalDisplayName")) $("postModalDisplayName").textContent = state.profile.displayName || "작성자";
+  if ($("postModalTag")) $("postModalTag").textContent = `@${state.profile.username}`;
+
   $("mpDisplayName").value = state.profile.displayName || "";
   $("mpUsername").value = state.profile.username || "";
   $("mpBio").value = state.profile.bio || "";
@@ -1274,6 +1286,7 @@ async function bootApp() {
   setVisible("authGate", false);
   setVisible("usernameGate", false);
   setVisible("appShell", true);
+  handleRoute(window.location.pathname);
 }
 
 onAuthStateChanged(auth, async (user) => {
@@ -1464,5 +1477,815 @@ if (chatPanelEl) {
     }
   });
 }
+
+// ==========================================================================
+// SPA URL Routing System (/@username, /feed, /chat, etc.)
+// ==========================================================================
+function formatTimeAgo(date) {
+  if (!date) return "";
+  const now = new Date();
+  const diffSec = Math.floor((now - date) / 1000);
+  if (diffSec < 60) return "방금 전";
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}분 전`;
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return `${diffHour}시간 전`;
+  const diffDay = Math.floor(diffHour / 24);
+  if (diffDay < 7) return `${diffDay}일 전`;
+  return `${date.getFullYear()}.${date.getMonth() + 1}.${date.getDate()}`;
+}
+
+function navigateTo(path, push = true) {
+  if (push) {
+    window.history.pushState(null, "", path);
+  }
+  handleRoute(path);
+}
+
+function handleRoute(path = window.location.pathname) {
+  let clean = (path || "/").trim().replace(/\/+$/, "") || "/";
+  if (clean.startsWith("/profile/")) {
+    clean = "/@" + clean.substring(9);
+  }
+
+  // Update navbar items
+  $("navChatBtn")?.classList.remove("active");
+  $("navFeedBtn")?.classList.remove("active");
+  $("navProfileBtn")?.classList.remove("active");
+
+  // Hide all panels
+  setVisible("viewChat", false);
+  setVisible("viewFeed", false);
+  setVisible("viewProfile", false);
+
+  if (clean === "/" || clean === "/chat") {
+    state.currentRoute = "/chat";
+    $("navChatBtn")?.classList.add("active");
+    setVisible("viewChat", true);
+    document.title = "SCCS - 신촌중학교 채팅서비스";
+  } else if (clean === "/feed") {
+    state.currentRoute = "/feed";
+    $("navFeedBtn")?.classList.add("active");
+    setVisible("viewFeed", true);
+    document.title = "SCCS - 스토리 피드 📸";
+    startFeedListener();
+  } else if (clean === "/me") {
+    if (state.profile?.username) {
+      navigateTo(`/@${state.profile.username}`, false);
+    } else {
+      navigateTo("/chat", false);
+    }
+  } else if (clean.startsWith("/@") || clean.startsWith("/u/")) {
+    state.currentRoute = clean;
+    const username = clean.startsWith("/@") ? clean.substring(2) : clean.substring(3);
+    if (state.profile?.username && username.toLowerCase() === state.profile.username.toLowerCase()) {
+      $("navProfileBtn")?.classList.add("active");
+    }
+    setVisible("viewProfile", true);
+    loadUserProfilePage(username);
+  } else {
+    state.currentRoute = "/chat";
+    $("navChatBtn")?.classList.add("active");
+    setVisible("viewChat", true);
+  }
+}
+
+window.addEventListener("popstate", () => {
+  handleRoute(window.location.pathname);
+});
+
+// Top Nav Listeners
+$("navChatBtn").onclick = () => navigateTo("/chat");
+$("navFeedBtn").onclick = () => navigateTo("/feed");
+$("navProfileBtn").onclick = () => {
+  if (state.profile?.username) navigateTo(`/@${state.profile.username}`);
+  else showToast("먼저 프로필을 설정해주세요.");
+};
+$("navBrandLogo").onclick = () => navigateTo("/feed");
+$("topMyPageBtn").onclick = () => $("myPageDialog").showModal();
+const leftUserCard = $("leftUserCard");
+if (leftUserCard) {
+  leftUserCard.onclick = () => {
+    if (state.profile?.username) navigateTo(`/@${state.profile.username}`);
+  };
+}
+
+// ==========================================================================
+// New Post Creation & Upload System
+// ==========================================================================
+function openNewPostModal() {
+  if (!state.user || !state.profile) return showToast("로그인이 필요합니다.");
+  bindProfile();
+  clearPostMedia();
+  $("postContentInput").value = "";
+  $("newPostDialog").showModal();
+}
+
+$("openNewPostBtn").onclick = () => openNewPostModal();
+$("composerTriggerBtn").onclick = () => openNewPostModal();
+$("composerOpenBtn").onclick = () => openNewPostModal();
+$("closePostModalBtn").onclick = () => $("newPostDialog").close();
+$("cancelPostBtn").onclick = () => $("newPostDialog").close();
+
+const postImgInput = $("postImgInput");
+const postVideoInput = $("postVideoInput");
+const postAddImgBtn = $("postAddImgBtn");
+const postAddVideoBtn = $("postAddVideoBtn");
+const removePostMediaBtn = $("removePostMediaBtn");
+const submitPostBtn = $("submitPostBtn");
+
+if (postAddImgBtn && postImgInput) {
+  postAddImgBtn.onclick = () => postImgInput.click();
+  postImgInput.onchange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      handlePostMediaUpload(e.target.files[0]);
+    }
+  };
+}
+
+if (postAddVideoBtn && postVideoInput) {
+  postAddVideoBtn.onclick = () => postVideoInput.click();
+  postVideoInput.onchange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      handlePostMediaUpload(e.target.files[0]);
+    }
+  };
+}
+
+if (removePostMediaBtn) {
+  removePostMediaBtn.onclick = () => clearPostMedia();
+}
+
+function handlePostMediaUpload(file) {
+  if (!file) return;
+  state.isPostUploading = true;
+  setVisible("postMediaPreviewWrap", true);
+  setVisible("postUploadProgressBarWrap", true);
+  $("postUploadProgressBar").style.width = "0%";
+  $("postUploadStatusText").textContent = "미디어 업로드 준비 중... ⏳";
+
+  const isImg = file.type.startsWith("image/");
+  const isVideo = file.type.startsWith("video/");
+
+  if (isImg) {
+    $("postPreviewImg").src = URL.createObjectURL(file);
+    setVisible("postPreviewImg", true);
+    setVisible("postPreviewVideo", false);
+  } else if (isVideo) {
+    $("postPreviewVideo").src = URL.createObjectURL(file);
+    setVisible("postPreviewVideo", true);
+    setVisible("postPreviewImg", false);
+  }
+
+  const xhr = new XMLHttpRequest();
+  state.currentPostUploadXhr = xhr;
+  const endpoint = `/api/upload-stream?filename=${encodeURIComponent(file.name)}&mimeType=${encodeURIComponent(file.type || "application/octet-stream")}`;
+  xhr.open("POST", endpoint, true);
+  xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+
+  xhr.upload.onprogress = (e) => {
+    if (e.lengthComputable && e.total > 0) {
+      const pct = Math.min(100, Math.round((e.loaded / e.total) * 100));
+      $("postUploadProgressBar").style.width = `${pct}%`;
+      $("postUploadStatusText").textContent = `업로드 중... ${pct}% (${formatSize(e.loaded)} / ${formatSize(e.total)})`;
+    }
+  };
+
+  xhr.onload = () => {
+    state.isPostUploading = false;
+    state.currentPostUploadXhr = null;
+    if (xhr.status >= 200 && xhr.status < 300) {
+      try {
+        const uploaded = JSON.parse(xhr.responseText);
+        state.pendingPostMedia = uploaded;
+        setVisible("postUploadProgressBarWrap", false);
+        $("postUploadStatusText").textContent = `✓ ${uploaded.type === "video" ? "동영상" : "사진"} 업로드 완료! (${formatSize(uploaded.size)})`;
+        showToast("파일 준비 완료! 본문을 적고 게시하기를 누르세요. 🚀");
+      } catch (err) {
+        showToast("파일 응답 처리 오류");
+        clearPostMedia();
+      }
+    } else {
+      showToast("업로드 실패 (HTTP " + xhr.status + ")");
+      clearPostMedia();
+    }
+  };
+
+  xhr.onerror = () => {
+    state.isPostUploading = false;
+    state.currentPostUploadXhr = null;
+    showToast("네트워크 오류로 업로드에 실패했습니다.");
+    clearPostMedia();
+  };
+
+  xhr.send(file);
+}
+
+function clearPostMedia() {
+  if (state.currentPostUploadXhr) {
+    try { state.currentPostUploadXhr.abort(); } catch (e) {}
+    state.currentPostUploadXhr = null;
+  }
+  state.pendingPostMedia = null;
+  state.isPostUploading = false;
+  setVisible("postMediaPreviewWrap", false);
+  setVisible("postUploadProgressBarWrap", false);
+  $("postPreviewImg").src = "";
+  $("postPreviewVideo").src = "";
+  $("postUploadStatusText").textContent = "";
+  if (postImgInput) postImgInput.value = "";
+  if (postVideoInput) postVideoInput.value = "";
+}
+
+async function submitPost() {
+  if (!state.user || !state.profile) return showToast("로그인이 필요합니다.");
+  if (state.isPostUploading) return showToast("미디어 파일 업로드가 진행 중입니다. 잠시만 기다려주세요... ⏳");
+
+  const content = $("postContentInput").value.trim();
+  const media = state.pendingPostMedia;
+
+  if (!content && !media) {
+    return showToast("내용이나 사진, 동영상을 첨부해주세요!");
+  }
+
+  const payload = {
+    authorUid: state.user.uid,
+    authorName: state.profile.displayName || "익명",
+    authorUsername: state.profile.username,
+    authorAvatar: state.profile.avatar || "🙂",
+    content: content || "",
+    likes: [],
+    likeCount: 0,
+    commentCount: 0,
+    createdAt: serverTimestamp(),
+  };
+
+  if (media) {
+    payload.media = media;
+  }
+
+  try {
+    submitPostBtn.disabled = true;
+    submitPostBtn.textContent = "게시 중... ⏳";
+    await addDoc(collection(db, "posts"), payload);
+    $("postContentInput").value = "";
+    clearPostMedia();
+    $("newPostDialog").close();
+    showToast("게시물이 성공적으로 등록되었습니다! 🚀");
+    navigateTo("/feed");
+  } catch (err) {
+    console.error("submit-post-error", err);
+    showToast("게시물 등록 중 오류가 발생했습니다.");
+  } finally {
+    submitPostBtn.disabled = false;
+    submitPostBtn.textContent = "게시하기 🚀";
+  }
+}
+
+if (submitPostBtn) {
+  submitPostBtn.onclick = () => submitPost();
+}
+
+// ==========================================================================
+// Feed Real-time Stream & Interaction
+// ==========================================================================
+function startFeedListener() {
+  if (state.unsubscribeFeed) return;
+  const feedList = $("feedPostsList");
+  if (!feedList) return;
+
+  const q = query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(50));
+  state.unsubscribeFeed = onSnapshot(q, (snapshot) => {
+    if (snapshot.empty) {
+      feedList.innerHTML = `
+        <div class="feed-composer-card glass" style="text-align:center; display:block; padding:40px 20px;">
+          <div style="font-size:36px; margin-bottom:12px;">📸</div>
+          <h3 style="font-size:16px; font-weight:700; margin-bottom:6px;">아직 게시물이 없습니다.</h3>
+          <p class="muted" style="font-size:13px; margin-bottom:16px;">첫 번째 일상이나 사진, 동영상을 공유해보세요!</p>
+          <button class="primary composer-btn" id="emptyPostBtn">새 게시물 작성 🚀</button>
+        </div>
+      `;
+      const btn = $("emptyPostBtn");
+      if (btn) btn.onclick = () => openNewPostModal();
+      return;
+    }
+
+    feedList.innerHTML = "";
+    snapshot.forEach((docSnap) => {
+      const post = { id: docSnap.id, ...docSnap.data() };
+      const card = createFeedPostCard(post);
+      feedList.appendChild(card);
+    });
+  });
+}
+
+function createFeedPostCard(post) {
+  const card = document.createElement("article");
+  card.className = "feed-post-card";
+  card.id = `post-${post.id}`;
+
+  const date = post.createdAt?.toDate ? post.createdAt.toDate() : new Date();
+  const timeStr = formatTimeAgo(date);
+  const likes = post.likes || [];
+  const isLiked = state.user && likes.includes(state.user.uid);
+  const isOwnPost = state.user && post.authorUid === state.user.uid;
+
+  let mediaHtml = "";
+  if (post.media) {
+    if (post.media.type === "video") {
+      mediaHtml = `
+        <div class="feed-post-media-wrap">
+          <video src="${post.media.url}" class="feed-post-video" controls playsinline preload="metadata"></video>
+        </div>
+      `;
+    } else {
+      mediaHtml = `
+        <div class="feed-post-media-wrap">
+          <img src="${post.media.url}" alt="게시물 사진" class="feed-post-img" loading="lazy" />
+        </div>
+      `;
+    }
+  }
+
+  card.innerHTML = `
+    <header class="feed-post-header">
+      <div class="feed-post-author" role="button" tabindex="0">
+        <div class="post-author-avatar">${post.authorAvatar || "🙂"}</div>
+        <div>
+          <div class="post-author-name">${post.authorName}</div>
+          <div class="post-author-username">@${post.authorUsername} · <span class="post-time-ago">${timeStr}</span></div>
+        </div>
+      </div>
+      ${isOwnPost ? `<button class="post-delete-btn" title="게시물 삭제">삭제</button>` : ""}
+    </header>
+
+    ${post.content ? `<div class="feed-post-body">${post.content}</div>` : ""}
+    ${mediaHtml}
+
+    <div class="feed-post-actions-bar">
+      <button type="button" class="action-icon-btn like-btn ${isLiked ? "liked" : ""}">
+        <span class="action-icon">${isLiked ? "❤️" : "🤍"}</span>
+        <span>좋아요 <strong class="like-count">${likes.length}</strong></span>
+      </button>
+      <button type="button" class="action-icon-btn comment-btn">
+        <span class="action-icon">💬</span>
+        <span>댓글 <strong>${post.commentCount || 0}</strong></span>
+      </button>
+      <button type="button" class="action-icon-btn share-btn">
+        <span class="action-icon">🔗</span>
+        <span>공유</span>
+      </button>
+    </div>
+
+    <div class="feed-post-comments-wrap hidden" hidden>
+      <div class="comments-list"></div>
+      <form class="comment-input-bar">
+        <input type="text" placeholder="댓글을 입력하세요..." required />
+        <button type="submit" class="primary">등록</button>
+      </form>
+    </div>
+  `;
+
+  // Author click
+  card.querySelector(".feed-post-author").onclick = () => {
+    navigateTo(`/@${post.authorUsername}`);
+  };
+
+  // Image click lightbox
+  const imgEl = card.querySelector(".feed-post-img");
+  if (imgEl && post.media?.url) {
+    imgEl.onclick = () => openLightbox(post.media.url);
+  }
+
+  // Delete button
+  if (isOwnPost) {
+    const delBtn = card.querySelector(".post-delete-btn");
+    if (delBtn) delBtn.onclick = () => deletePost(post.id);
+  }
+
+  // Like button
+  const likeBtn = card.querySelector(".like-btn");
+  likeBtn.onclick = () => togglePostLike(post.id, likes);
+
+  // Share button
+  const shareBtn = card.querySelector(".share-btn");
+  shareBtn.onclick = () => {
+    const url = `${window.location.origin}/@${post.authorUsername}`;
+    navigator.clipboard.writeText(url);
+    showToast("게시물 링크가 클립보드에 복사되었습니다! 🔗");
+  };
+
+  // Comments toggle & submission
+  const commentBtn = card.querySelector(".comment-btn");
+  const commentsWrap = card.querySelector(".feed-post-comments-wrap");
+  let unsubCardComments = null;
+
+  commentBtn.onclick = () => {
+    const isHidden = commentsWrap.hasAttribute("hidden");
+    setVisible(commentsWrap, isHidden);
+    if (isHidden && !unsubCardComments) {
+      const qComments = query(
+        collection(db, "posts", post.id, "comments"),
+        orderBy("createdAt", "asc")
+      );
+      unsubCardComments = onSnapshot(qComments, (snap) => {
+        const list = commentsWrap.querySelector(".comments-list");
+        if (snap.empty) {
+          list.innerHTML = `<div class="muted" style="font-size:12px; padding:6px 0;">첫 댓글을 남겨보세요!</div>`;
+          return;
+        }
+        list.innerHTML = "";
+        snap.forEach((doc) => {
+          const c = doc.data();
+          const row = document.createElement("div");
+          row.className = "comment-row";
+          row.innerHTML = `
+            <div class="comment-avatar">${c.authorAvatar || "🙂"}</div>
+            <div class="comment-content">
+              <div><strong class="comment-author-name">${c.authorName}</strong> <span class="comment-text">${c.text}</span></div>
+              <span class="comment-time">${formatTimeAgo(c.createdAt?.toDate ? c.createdAt.toDate() : new Date())}</span>
+            </div>
+          `;
+          list.appendChild(row);
+        });
+      });
+    }
+  };
+
+  const commentForm = card.querySelector(".comment-input-bar");
+  commentForm.onsubmit = async (e) => {
+    e.preventDefault();
+    const input = commentForm.querySelector("input");
+    await submitComment(post.id, input);
+  };
+
+  return card;
+}
+
+async function togglePostLike(postId, currentLikes = []) {
+  if (!state.user) return showToast("로그인이 필요합니다.");
+  const uid = state.user.uid;
+  const isLiked = currentLikes.includes(uid);
+  const postRef = doc(db, "posts", postId);
+  try {
+    if (isLiked) {
+      await updateDoc(postRef, {
+        likes: arrayRemove(uid),
+        likeCount: Math.max(0, currentLikes.length - 1),
+      });
+    } else {
+      await updateDoc(postRef, {
+        likes: arrayUnion(uid),
+        likeCount: currentLikes.length + 1,
+      });
+    }
+  } catch (err) {
+    console.error("like-error", err);
+  }
+}
+
+async function submitComment(postId, inputEl) {
+  if (!state.user || !state.profile) return showToast("로그인이 필요합니다.");
+  const text = inputEl.value.trim();
+  if (!text) return;
+  inputEl.value = "";
+  try {
+    await addDoc(collection(db, "posts", postId, "comments"), {
+      authorUid: state.user.uid,
+      authorName: state.profile.displayName || "익명",
+      authorUsername: state.profile.username,
+      authorAvatar: state.profile.avatar || "🙂",
+      text,
+      createdAt: serverTimestamp(),
+    });
+
+    const postRef = doc(db, "posts", postId);
+    const postSnap = await getDoc(postRef);
+    if (postSnap.exists()) {
+      const cur = postSnap.data().commentCount || 0;
+      await updateDoc(postRef, { commentCount: cur + 1 });
+    }
+    showToast("댓글이 등록되었습니다! 💬");
+  } catch (err) {
+    console.error("submit-comment-failed", err);
+    showToast("댓글 등록 실패");
+  }
+}
+
+async function deletePost(postId) {
+  if (!confirm("게시물을 정말 삭제하시겠습니까?")) return;
+  try {
+    await deleteDoc(doc(db, "posts", postId));
+    showToast("게시물이 삭제되었습니다.");
+    if (state.currentRoute.startsWith("/@") || state.currentRoute.startsWith("/u/")) {
+      const username = state.currentRoute.startsWith("/@") ? state.currentRoute.substring(2) : state.currentRoute.substring(3);
+      loadUserProfilePage(username);
+    }
+  } catch (err) {
+    console.error("delete-post-error", err);
+    showToast("게시물 삭제 실패");
+  }
+}
+
+// ==========================================================================
+// Profile View & 3-Column Instagram Gallery
+// ==========================================================================
+async function loadUserProfilePage(username) {
+  if (!username) return;
+  state.viewingProfileUsername = username;
+  document.title = `SCCS - @${username}님의 프로필`;
+
+  const heroName = $("profileViewDisplayName");
+  const heroTag = $("profileViewTag");
+  const heroBio = $("profileViewBio");
+  const heroAvatar = $("profileViewAvatar");
+  const heroIdentity = $("profileViewIdentity");
+  const postCountEl = $("profilePostCount");
+  const friendCountEl = $("profileFriendCount");
+  const actionsBar = $("profileActionBtns");
+  const gridEl = $("profilePostGrid");
+
+  gridEl.innerHTML = `<div class="grid-empty-state">게시물을 불러오는 중... ⏳</div>`;
+
+  try {
+    let targetUser = null;
+    let targetUid = null;
+
+    if (state.profile && state.profile.username.toLowerCase() === username.toLowerCase()) {
+      targetUser = state.profile;
+      targetUid = state.user.uid;
+    } else {
+      const q = query(collection(db, "users"), where("username", "==", username.toLowerCase()), limit(1));
+      const snap = await getDocs(q);
+      if (snap.empty) {
+        heroName.textContent = "사용자를 찾을 수 없음";
+        heroTag.textContent = `@${username}`;
+        heroBio.textContent = "존재하지 않거나 삭제된 사용자입니다.";
+        gridEl.innerHTML = `<div class="grid-empty-state">등록된 게시물이 없습니다.</div>`;
+        actionsBar.innerHTML = "";
+        return;
+      }
+      targetUser = snap.docs[0].data();
+      targetUid = snap.docs[0].id;
+    }
+
+    heroName.textContent = targetUser.displayName || targetUser.username;
+    heroTag.textContent = `@${targetUser.username}`;
+    heroBio.textContent = targetUser.bio || "소개글이 없습니다.";
+    heroAvatar.textContent = targetUser.avatar || "🙂";
+
+    if (targetUser.grade || targetUser.classNum || targetUser.studentNum) {
+      heroIdentity.textContent = `${targetUser.grade ? targetUser.grade + "학년 " : ""}${targetUser.classNum ? targetUser.classNum + "반 " : ""}${targetUser.studentNum ? targetUser.studentNum + "번" : ""}`.trim();
+      setVisible("profileViewIdentity", true);
+    } else {
+      setVisible("profileViewIdentity", false);
+    }
+
+    // Actions
+    actionsBar.innerHTML = "";
+    if (state.user && state.user.uid === targetUid) {
+      const editBtn = document.createElement("button");
+      editBtn.className = "primary";
+      editBtn.textContent = "✏️ 프로필 편집";
+      editBtn.onclick = () => $("myPageDialog").showModal();
+
+      const copyLinkBtn = document.createElement("button");
+      copyLinkBtn.className = "ghost";
+      copyLinkBtn.textContent = "🔗 내 링크 복사";
+      copyLinkBtn.onclick = () => {
+        navigator.clipboard.writeText(`${window.location.origin}/@${targetUser.username}`);
+        showToast("프로필 주소가 복사되었습니다! 🔗");
+      };
+
+      actionsBar.append(editBtn, copyLinkBtn);
+    } else {
+      const chatBtn = document.createElement("button");
+      chatBtn.className = "primary";
+      chatBtn.textContent = "💬 1:1 대화하기";
+      chatBtn.onclick = () => {
+        openChat(targetUid, targetUser);
+        navigateTo("/chat");
+      };
+
+      const friendBtn = document.createElement("button");
+      friendBtn.className = "ghost";
+      const isAlreadyFriend = state.friends?.some((f) => f.uid === targetUid);
+      friendBtn.textContent = isAlreadyFriend ? "✓ 친구 상태" : "➕ 친구 추가";
+      if (!isAlreadyFriend) {
+        friendBtn.onclick = async () => {
+          $("friendUsernameInput").value = targetUser.username;
+          await addFriendByUsername();
+          friendBtn.textContent = "✓ 친구 추가됨";
+        };
+      }
+
+      const copyLinkBtn = document.createElement("button");
+      copyLinkBtn.className = "ghost";
+      copyLinkBtn.textContent = "🔗 링크 복사";
+      copyLinkBtn.onclick = () => {
+        navigator.clipboard.writeText(`${window.location.origin}/@${targetUser.username}`);
+        showToast("프로필 주소가 복사되었습니다! 🔗");
+      };
+
+      actionsBar.append(chatBtn, friendBtn, copyLinkBtn);
+    }
+
+    // Fetch friend count
+    const friendsSnap = await getDocs(
+      query(collection(db, "friendships"), where("users", "array-contains", targetUid))
+    );
+    friendCountEl.textContent = friendsSnap.size;
+
+    // Fetch user posts
+    const postsQuery = query(
+      collection(db, "posts"),
+      where("authorUid", "==", targetUid),
+      orderBy("createdAt", "desc")
+    );
+    const postsSnap = await getDocs(postsQuery);
+    postCountEl.textContent = postsSnap.size;
+
+    if (postsSnap.empty) {
+      gridEl.innerHTML = `<div class="grid-empty-state">아직 업로드된 사진이나 게시물이 없습니다. 📷</div>`;
+      return;
+    }
+
+    gridEl.innerHTML = "";
+    postsSnap.forEach((docSnap) => {
+      const post = { id: docSnap.id, ...docSnap.data() };
+      const item = document.createElement("div");
+      item.className = "grid-item";
+
+      const likesCount = (post.likes || []).length;
+      const commentsCount = post.commentCount || 0;
+
+      if (post.media) {
+        if (post.media.type === "video") {
+          const video = document.createElement("video");
+          video.src = post.media.url;
+          video.muted = true;
+          video.preload = "metadata";
+          item.appendChild(video);
+
+          const badge = document.createElement("div");
+          badge.className = "grid-video-badge";
+          badge.textContent = "🎬 동영상";
+          item.appendChild(badge);
+        } else {
+          const img = document.createElement("img");
+          img.src = post.media.url;
+          img.alt = "포스트 사진";
+          img.loading = "lazy";
+          item.appendChild(img);
+        }
+      } else {
+        const textCard = document.createElement("div");
+        textCard.style.padding = "16px";
+        textCard.style.display = "flex";
+        textCard.style.alignItems = "center";
+        textCard.style.justifyContent = "center";
+        textCard.style.height = "100%";
+        textCard.style.textAlign = "center";
+        textCard.style.fontSize = "13px";
+        textCard.style.lineHeight = "1.4";
+        textCard.style.color = "#E2E8F0";
+        textCard.textContent = post.content ? post.content.substring(0, 50) + "..." : "게시물";
+        item.appendChild(textCard);
+      }
+
+      const overlay = document.createElement("div");
+      overlay.className = "grid-overlay";
+      overlay.innerHTML = `
+        <span class="grid-overlay-stat">❤️ ${likesCount}</span>
+        <span class="grid-overlay-stat">💬 ${commentsCount}</span>
+      `;
+      item.appendChild(overlay);
+
+      item.onclick = () => openPostDetail(post);
+      gridEl.appendChild(item);
+    });
+  } catch (err) {
+    console.error("loadProfileView error", err);
+    gridEl.innerHTML = `<div class="grid-empty-state">게시물을 불러오는 중 오류가 발생했습니다.</div>`;
+  }
+}
+
+function openPostDetail(post) {
+  const container = $("postDetailLayout");
+  if (!container) return;
+
+  const date = post.createdAt?.toDate ? post.createdAt.toDate() : new Date();
+  const timeStr = formatTimeAgo(date);
+  const likes = post.likes || [];
+  const isLiked = state.user && likes.includes(state.user.uid);
+
+  container.innerHTML = `
+    <div class="post-detail-media-side">
+      ${
+        post.media?.type === "video"
+          ? `<video src="${post.media.url}" controls playsinline autoplay muted></video>`
+          : post.media?.url
+          ? `<img src="${post.media.url}" alt="포스트 이미지" />`
+          : `<div style="color:#FFF; padding:20px; text-align:center; font-size:16px;">${post.content || ""}</div>`
+      }
+    </div>
+    <div class="post-detail-info-side">
+      <div class="feed-post-header">
+        <div class="feed-post-author" id="detailAuthorBtn">
+          <div class="post-author-avatar">${post.authorAvatar || "🙂"}</div>
+          <div>
+            <div class="post-author-name">${post.authorName}</div>
+            <div class="post-author-username">@${post.authorUsername} · ${timeStr}</div>
+          </div>
+        </div>
+      </div>
+      <div class="feed-post-body" style="padding-bottom:16px;">${post.content || ""}</div>
+      <div class="feed-post-actions-bar">
+        <button type="button" class="action-icon-btn ${isLiked ? "liked" : ""}" id="detailLikeBtn">
+          <span class="action-icon">${isLiked ? "❤️" : "🤍"}</span>
+          <span>좋아요 <strong id="detailLikeCount">${likes.length}</strong></span>
+        </button>
+        <button type="button" class="action-icon-btn" id="detailShareBtn">
+          <span>🔗</span> 공유
+        </button>
+      </div>
+      <div class="feed-post-comments-wrap" style="flex:1; display:flex; flex-direction:column; overflow:hidden;">
+        <div class="comments-list" id="detailCommentsList" style="flex:1; max-height:none;">
+          <div class="muted" style="font-size:12px; padding:10px;">댓글을 불러오는 중... ⏳</div>
+        </div>
+        <form class="comment-input-bar" id="detailCommentForm">
+          <input type="text" placeholder="댓글 달기..." id="detailCommentInput" required />
+          <button type="submit" class="primary">게시</button>
+        </form>
+      </div>
+    </div>
+  `;
+
+  $("detailAuthorBtn").onclick = () => {
+    $("postDetailDialog").close();
+    navigateTo(`/@${post.authorUsername}`);
+  };
+
+  $("detailLikeBtn").onclick = async () => {
+    await togglePostLike(post.id, likes);
+    const docSnap = await getDoc(doc(db, "posts", post.id));
+    if (docSnap.exists()) {
+      const updated = docSnap.data().likes || [];
+      const likedNow = updated.includes(state.user?.uid);
+      $("detailLikeBtn").classList.toggle("liked", likedNow);
+      $("detailLikeBtn").querySelector(".action-icon").textContent = likedNow ? "❤️" : "🤍";
+      $("detailLikeCount").textContent = updated.length;
+    }
+  };
+
+  $("detailShareBtn").onclick = () => {
+    navigator.clipboard.writeText(`${window.location.origin}/@${post.authorUsername}`);
+    showToast("게시물 작성자 링크가 복사되었습니다! 🔗");
+  };
+
+  const commentsQ = query(
+    collection(db, "posts", post.id, "comments"),
+    orderBy("createdAt", "asc")
+  );
+  const unsubComments = onSnapshot(commentsQ, (snap) => {
+    const list = $("detailCommentsList");
+    if (!list) return;
+    if (snap.empty) {
+      list.innerHTML = `<div class="muted" style="font-size:12px; padding:10px 0;">첫 번째 댓글을 남겨보세요!</div>`;
+      return;
+    }
+    list.innerHTML = "";
+    snap.forEach((doc) => {
+      const c = doc.data();
+      const row = document.createElement("div");
+      row.className = "comment-row";
+      row.innerHTML = `
+        <div class="comment-avatar">${c.authorAvatar || "🙂"}</div>
+        <div class="comment-content">
+          <div><strong class="comment-author-name">${c.authorName}</strong> <span class="comment-text">${c.text}</span></div>
+          <span class="comment-time">${formatTimeAgo(c.createdAt?.toDate ? c.createdAt.toDate() : new Date())}</span>
+        </div>
+      `;
+      list.appendChild(row);
+    });
+    list.scrollTop = list.scrollHeight;
+  });
+
+  $("detailCommentForm").onsubmit = async (e) => {
+    e.preventDefault();
+    await submitComment(post.id, $("detailCommentInput"));
+  };
+
+  $("closePostDetailBtn").onclick = () => {
+    $("postDetailDialog").close();
+  };
+
+  $("postDetailDialog").onclose = () => {
+    unsubComments();
+  };
+
+  $("postDetailDialog").showModal();
+}
+
 
 
