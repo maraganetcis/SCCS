@@ -1167,19 +1167,38 @@ menu {
   color: var(--text-muted);
 }
 
+.post-author-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.post-edit-btn,
 .post-delete-btn {
   background: transparent;
-  border: none;
+  border: 1px solid transparent;
   color: var(--text-muted);
   cursor: pointer;
-  padding: 4px 8px;
-  font-size: 13px;
-  border-radius: 4px;
+  padding: 5px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 120ms ease;
+}
+
+.post-edit-btn:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: rgba(37, 99, 235, 0.2);
 }
 
 .post-delete-btn:hover {
   background: #FEE2E2;
   color: #DC2626;
+  border-color: rgba(220, 38, 38, 0.2);
 }
 
 .feed-post-body {

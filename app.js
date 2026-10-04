@@ -1938,7 +1938,14 @@ function createFeedPostCard(post) {
           <div class="post-author-username">@${post.authorUsername} · <span class="post-time-ago">${timeStr}</span></div>
         </div>
       </div>
-      ${isOwnPost ? `<button class="post-delete-btn" title="삭제">${SVG.trash}</button>` : ""}
+      ${
+        isOwnPost
+          ? `<div class="post-author-actions">
+              <button type="button" class="post-edit-btn" title="게시물 수정">${SVG.edit} <span>수정</span></button>
+              <button type="button" class="post-delete-btn" title="게시물 삭제">${SVG.trash} <span>삭제</span></button>
+            </div>`
+          : ""
+      }
     </header>
 
     ${post.content ? `<div class="feed-post-body">${post.content}</div>` : ""}
@@ -1979,8 +1986,11 @@ function createFeedPostCard(post) {
     imgEl.onclick = () => openLightbox(post.media.url);
   }
 
-  // Delete button
+  // Edit & Delete button handlers (only for author)
   if (isOwnPost) {
+    const editBtn = card.querySelector(".post-edit-btn");
+    if (editBtn) editBtn.onclick = () => openEditPostModal(post);
+
     const delBtn = card.querySelector(".post-delete-btn");
     if (delBtn) delBtn.onclick = () => deletePost(post.id);
   }
@@ -2078,6 +2088,211 @@ function createFeedPostCard(post) {
 
   return card;
 }
+
+// ==========================================================================
+// Post Editing State & Handlers
+// ==========================================================================
+state.editingPost = null;
+state.editingPostMedia = null;
+state.isEditUploading = false;
+state.currentEditUploadXhr = null;
+
+function openEditPostModal(post) {
+  if (!state.user || post.authorUid !== state.user.uid) {
+    return showToast("본인이 작성한 게시물만 수정할 수 있습니다.");
+  }
+  state.editingPost = post;
+  state.editingPostMedia = post.media ? { ...post.media } : null;
+  state.isEditUploading = false;
+
+  $("editPostContentInput").value = post.content || "";
+  renderEditMediaPreview();
+  $("editPostDialog").showModal();
+}
+
+function renderEditMediaPreview() {
+  const wrap = $("editMediaPreviewWrap");
+  const imgEl = $("editPreviewImg");
+  const videoEl = $("editPreviewVideo");
+  const statusEl = $("editUploadStatusText");
+
+  if (!state.editingPostMedia || !state.editingPostMedia.url) {
+    setVisible(wrap, false);
+    imgEl.src = "";
+    videoEl.src = "";
+    if (statusEl) statusEl.textContent = "";
+    return;
+  }
+
+  setVisible(wrap, true);
+  if (state.editingPostMedia.type === "video") {
+    videoEl.src = state.editingPostMedia.url;
+    setVisible(videoEl, true);
+    setVisible(imgEl, false);
+  } else {
+    imgEl.src = state.editingPostMedia.url;
+    setVisible(imgEl, true);
+    setVisible(videoEl, false);
+  }
+  if (statusEl) statusEl.textContent = `현재 첨부: ${state.editingPostMedia.name || (state.editingPostMedia.type === "video" ? "동영상" : "사진")}`;
+}
+
+function handleEditMediaUpload(file) {
+  if (!file) return;
+  state.isEditUploading = true;
+  setVisible("editMediaPreviewWrap", true);
+  setVisible("editUploadProgressBarWrap", true);
+  $("editUploadProgressBar").style.width = "0%";
+  $("editUploadStatusText").textContent = "미디어 파일 변경 중...";
+
+  const isImg = file.type.startsWith("image/");
+  const isVideo = file.type.startsWith("video/");
+
+  if (isImg) {
+    $("editPreviewImg").src = URL.createObjectURL(file);
+    setVisible("editPreviewImg", true);
+    setVisible("editPreviewVideo", false);
+  } else if (isVideo) {
+    $("editPreviewVideo").src = URL.createObjectURL(file);
+    setVisible("editPreviewVideo", true);
+    setVisible("editPreviewImg", false);
+  }
+
+  const xhr = new XMLHttpRequest();
+  state.currentEditUploadXhr = xhr;
+  const endpoint = `/api/upload-stream?filename=${encodeURIComponent(file.name)}&mimeType=${encodeURIComponent(file.type || "application/octet-stream")}`;
+  xhr.open("POST", endpoint, true);
+  xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+
+  xhr.upload.onprogress = (e) => {
+    if (e.lengthComputable && e.total > 0) {
+      const pct = Math.min(100, Math.round((e.loaded / e.total) * 100));
+      $("editUploadProgressBar").style.width = `${pct}%`;
+      $("editUploadStatusText").textContent = `업로드 중... ${pct}%`;
+    }
+  };
+
+  xhr.onload = () => {
+    state.isEditUploading = false;
+    state.currentEditUploadXhr = null;
+    if (xhr.status >= 200 && xhr.status < 300) {
+      try {
+        const uploaded = JSON.parse(xhr.responseText);
+        state.editingPostMedia = {
+          url: String(uploaded.url),
+          name: String(uploaded.name || file.name),
+          type: String(uploaded.type || (isVideo ? "video" : "image")),
+          mime: String(uploaded.mime || file.type || ""),
+          size: Number(uploaded.size || file.size || 0),
+        };
+        setVisible("editUploadProgressBarWrap", false);
+        $("editUploadStatusText").textContent = `✓ ${state.editingPostMedia.type === "video" ? "동영상" : "사진"} 변경 완료`;
+        showToast("미디어 파일이 성공적으로 변경되었습니다.");
+      } catch (err) {
+        showToast("파일 응답 처리 오류");
+      }
+    } else {
+      showToast("업로드 실패 (HTTP " + xhr.status + ")");
+    }
+  };
+
+  xhr.onerror = () => {
+    state.isEditUploading = false;
+    state.currentEditUploadXhr = null;
+    showToast("네트워크 오류로 파일 변경에 실패했습니다.");
+  };
+
+  xhr.send(file);
+}
+
+async function saveEditPost() {
+  if (!state.user || !state.editingPost) return;
+  if (state.isEditUploading) return showToast("미디어 파일 업로드가 진행 중입니다. 잠시만 기다려주세요...");
+
+  const content = $("editPostContentInput").value.trim();
+  const media = state.editingPostMedia;
+
+  if (!content && !media) {
+    return showToast("내용이나 사진, 동영상을 입력해주세요.");
+  }
+
+  const postId = state.editingPost.id;
+  const saveBtn = $("saveEditPostBtn");
+
+  try {
+    saveBtn.disabled = true;
+    saveBtn.textContent = "저장 중...";
+
+    let updated = false;
+
+    // 1. Backend API PUT /api/posts/:id
+    try {
+      const resp = await fetch(`/api/posts/${postId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          uid: state.user.uid,
+          content,
+          media: media || null,
+        }),
+      });
+      if (resp.ok) updated = true;
+    } catch (e) {
+      console.warn("Backend update error:", e);
+    }
+
+    // 2. Firebase Firestore updateDoc (with timeout)
+    try {
+      const fsUpdate = updateDoc(doc(db, "posts", postId), {
+        content,
+        media: media || null,
+        updatedAt: serverTimestamp(),
+      });
+      const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 1500));
+      await Promise.race([fsUpdate, timeout]);
+      updated = true;
+    } catch (fsErr) {
+      console.warn("Firestore updateDoc error/timeout:", fsErr);
+    }
+
+    if (!updated) {
+      throw new Error("수정 저장에 실패했습니다.");
+    }
+
+    $("editPostDialog").close();
+    showToast("게시물이 성공적으로 수정되었습니다! ✨");
+
+    // Refresh feed and profile view
+    await loadFeedFromServer();
+    if (state.currentRoute.startsWith("/@") || state.currentRoute.startsWith("/u/")) {
+      const username = state.currentRoute.startsWith("/@") ? state.currentRoute.substring(2) : state.currentRoute.substring(3);
+      loadUserProfilePage(username);
+    }
+  } catch (err) {
+    console.error("saveEditPost error", err);
+    showToast("수정 저장 실패: " + (err.message || "오류"));
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.innerHTML = `${SVG.userCheck} <span>수정 완료</span>`;
+  }
+}
+
+// Bind edit modal buttons
+$("closeEditPostModalBtn").onclick = () => $("editPostDialog").close();
+$("cancelEditPostBtn").onclick = () => $("editPostDialog").close();
+$("saveEditPostBtn").onclick = () => saveEditPost();
+$("editRemoveMediaBtn").onclick = () => {
+  state.editingPostMedia = null;
+  renderEditMediaPreview();
+};
+$("editAddImgBtn").onclick = () => $("editImgInput").click();
+$("editImgInput").onchange = (e) => {
+  if (e.target.files && e.target.files[0]) handleEditMediaUpload(e.target.files[0]);
+};
+$("editAddVideoBtn").onclick = () => $("editVideoInput").click();
+$("editVideoInput").onchange = (e) => {
+  if (e.target.files && e.target.files[0]) handleEditMediaUpload(e.target.files[0]);
+};
 
 async function togglePostLike(postId, currentLikes = []) {
   if (!state.user) return showToast("로그인이 필요합니다.");
@@ -2410,6 +2625,7 @@ function openPostDetail(post) {
 
   const likes = post.likes || [];
   const isLiked = state.user && likes.includes(state.user.uid);
+  const isOwnPost = Boolean(state.user && post.authorUid === state.user.uid);
 
   container.innerHTML = `
     <div class="post-detail-media-side">
@@ -2430,6 +2646,14 @@ function openPostDetail(post) {
             <div class="post-author-username">@${post.authorUsername} · ${timeStr}</div>
           </div>
         </div>
+        ${
+          isOwnPost
+            ? `<div class="post-author-actions">
+                <button type="button" class="post-edit-btn" id="detailEditBtn" title="게시물 수정">${SVG.edit} <span>수정</span></button>
+                <button type="button" class="post-delete-btn" id="detailDeleteBtn" title="게시물 삭제">${SVG.trash} <span>삭제</span></button>
+              </div>`
+            : ""
+        }
       </div>
       <div class="feed-post-body" style="padding-bottom:16px;">${post.content || ""}</div>
       <div class="feed-post-actions-bar">
@@ -2453,6 +2677,16 @@ function openPostDetail(post) {
       </div>
     </div>
   `;
+
+  if (isOwnPost) {
+    $("detailEditBtn")?.addEventListener("click", () => {
+      $("postDetailDialog").close();
+      openEditPostModal(post);
+    });
+    $("detailDeleteBtn")?.addEventListener("click", () => {
+      deletePost(post.id);
+    });
+  }
 
   $("detailAuthorBtn").onclick = () => {
     $("postDetailDialog").close();

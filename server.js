@@ -268,6 +268,32 @@ app.post('/api/posts/:id/comment', (req, res) => {
   }
 });
 
+app.put('/api/posts/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const { uid, content, media } = req.body;
+    if (!uid) return res.status(400).json({ error: '인증 정보가 필요합니다.' });
+    const posts = readPosts();
+    const post = posts.find((p) => p.id === id);
+    if (!post) return res.status(404).json({ error: '게시물을 찾을 수 없습니다.' });
+    if (post.authorUid !== uid) {
+      return res.status(403).json({ error: '수정 권한이 없습니다.' });
+    }
+    if (typeof content === 'string') {
+      post.content = content.trim();
+    }
+    if (media !== undefined) {
+      post.media = media;
+    }
+    post.updatedAt = new Date().toISOString();
+    writePosts(posts);
+    res.json(post);
+  } catch (err) {
+    console.error('update-post-error', err);
+    res.status(500).json({ error: '게시물 수정 처리 오류' });
+  }
+});
+
 app.delete('/api/posts/:id', (req, res) => {
   try {
     const { id } = req.params;

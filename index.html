@@ -363,6 +363,57 @@
       </div>
     </dialog>
 
+    <!-- Edit Post Dialog -->
+    <dialog id="editPostDialog" class="post-composer-dialog">
+      <div class="composer-modal-box glass">
+        <header class="composer-modal-header">
+          <h3>
+            <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            <span>게시물 수정</span>
+          </h3>
+          <button id="closeEditPostModalBtn" type="button" class="close-x-btn">&times;</button>
+        </header>
+
+        <textarea id="editPostContentInput" class="composer-textarea" placeholder="수정할 내용을 입력하세요..." rows="4"></textarea>
+
+        <!-- Edit Media Preview Area -->
+        <div id="editMediaPreviewWrap" class="post-media-preview-wrap hidden" hidden>
+          <div class="preview-media-container">
+            <img id="editPreviewImg" src="" alt="미리보기" class="hidden" hidden />
+            <video id="editPreviewVideo" class="hidden" hidden controls playsinline muted></video>
+            <button id="editRemoveMediaBtn" type="button" class="remove-media-btn" title="첨부 삭제">&times;</button>
+          </div>
+          <div id="editUploadProgressBarWrap" class="preview-progress-wrap hidden" hidden>
+            <div id="editUploadProgressBar" class="preview-progress-bar"></div>
+          </div>
+          <span id="editUploadStatusText" class="muted" style="font-size:12px; display:block; margin-top:4px;"></span>
+        </div>
+
+        <!-- Edit Footer Actions -->
+        <footer class="composer-modal-footer">
+          <div class="composer-attach-tools">
+            <input type="file" id="editImgInput" accept="image/*" style="display:none;" />
+            <input type="file" id="editVideoInput" accept="video/*,video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm,.m4v,.avi,.mkv" style="display:none;" />
+            <button id="editAddImgBtn" type="button" class="tool-btn" title="사진 변경/추가">
+              <svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              <span>사진 변경</span>
+            </button>
+            <button id="editAddVideoBtn" type="button" class="tool-btn" title="동영상 변경/추가">
+              <svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+              <span>동영상 변경</span>
+            </button>
+          </div>
+          <div class="composer-submit-wrap">
+            <button id="cancelEditPostBtn" type="button" class="ghost">취소</button>
+            <button id="saveEditPostBtn" type="button" class="primary">
+              <svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <span>수정 완료</span>
+            </button>
+          </div>
+        </footer>
+      </div>
+    </dialog>
+
     <!-- Post Detail Dialog (for grid view or expanded feed) -->
     <dialog id="postDetailDialog" class="post-detail-dialog">
       <div class="post-detail-modal-box glass">
