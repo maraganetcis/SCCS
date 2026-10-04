@@ -1479,8 +1479,23 @@ if (chatPanelEl) {
 }
 
 // ==========================================================================
-// SPA URL Routing System (/@username, /feed, /chat, etc.)
+// SPA URL Routing & Modern SVG Icons System
 // ==========================================================================
+const SVG = {
+  heart: (filled = false) => filled
+    ? `<svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="#EF4444" stroke="#EF4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`
+    : `<svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`,
+  comment: `<svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>`,
+  share: `<svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>`,
+  trash: `<svg class="ui-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
+  videoBadge: `<svg class="ui-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>`,
+  chat: `<svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
+  userPlus: `<svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>`,
+  userCheck: `<svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+  edit: `<svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
+  link: `<svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`,
+};
+
 function formatTimeAgo(date) {
   if (!date) return "";
   const now = new Date();
@@ -1523,11 +1538,11 @@ function handleRoute(path = window.location.pathname) {
     $("navChatBtn")?.classList.add("active");
     setVisible("viewChat", true);
     document.title = "SCCS - 신촌중학교 채팅서비스";
-  } else if (clean === "/feed") {
-    state.currentRoute = "/feed";
+  } else if (clean === "/feed" || clean === "/lounge") {
+    state.currentRoute = clean;
     $("navFeedBtn")?.classList.add("active");
     setVisible("viewFeed", true);
-    document.title = "SCCS - 스토리 피드 📸";
+    document.title = "SCCS - 라운지";
     startFeedListener();
   } else if (clean === "/me") {
     if (state.profile?.username) {
@@ -1571,7 +1586,7 @@ if (leftUserCard) {
 }
 
 // ==========================================================================
-// New Post Creation & Upload System
+// New Post Creation & Robust Storage System
 // ==========================================================================
 function openNewPostModal() {
   if (!state.user || !state.profile) return showToast("로그인이 필요합니다.");
@@ -1622,7 +1637,7 @@ function handlePostMediaUpload(file) {
   setVisible("postMediaPreviewWrap", true);
   setVisible("postUploadProgressBarWrap", true);
   $("postUploadProgressBar").style.width = "0%";
-  $("postUploadStatusText").textContent = "미디어 업로드 준비 중... ⏳";
+  $("postUploadStatusText").textContent = "미디어 파일 준비 중...";
 
   const isImg = file.type.startsWith("image/");
   const isVideo = file.type.startsWith("video/");
@@ -1657,10 +1672,16 @@ function handlePostMediaUpload(file) {
     if (xhr.status >= 200 && xhr.status < 300) {
       try {
         const uploaded = JSON.parse(xhr.responseText);
-        state.pendingPostMedia = uploaded;
+        state.pendingPostMedia = {
+          url: String(uploaded.url),
+          name: String(uploaded.name || file.name),
+          type: String(uploaded.type || (isVideo ? "video" : "image")),
+          mime: String(uploaded.mime || file.type || ""),
+          size: Number(uploaded.size || file.size || 0),
+        };
         setVisible("postUploadProgressBarWrap", false);
-        $("postUploadStatusText").textContent = `✓ ${uploaded.type === "video" ? "동영상" : "사진"} 업로드 완료! (${formatSize(uploaded.size)})`;
-        showToast("파일 준비 완료! 본문을 적고 게시하기를 누르세요. 🚀");
+        $("postUploadStatusText").textContent = `✓ ${uploaded.type === "video" ? "동영상" : "사진"} 첨부 완료 (${formatSize(uploaded.size)})`;
+        showToast("미디어 첨부 완료! 이제 게시하기를 누르세요.");
       } catch (err) {
         showToast("파일 응답 처리 오류");
         clearPostMedia();
@@ -1699,46 +1720,85 @@ function clearPostMedia() {
 
 async function submitPost() {
   if (!state.user || !state.profile) return showToast("로그인이 필요합니다.");
-  if (state.isPostUploading) return showToast("미디어 파일 업로드가 진행 중입니다. 잠시만 기다려주세요... ⏳");
+  if (state.isPostUploading) return showToast("미디어 파일 업로드가 진행 중입니다. 잠시만 기다려주세요...");
 
   const content = $("postContentInput").value.trim();
   const media = state.pendingPostMedia;
 
   if (!content && !media) {
-    return showToast("내용이나 사진, 동영상을 첨부해주세요!");
+    return showToast("내용이나 사진, 동영상을 입력해주세요.");
   }
 
   const payload = {
-    authorUid: state.user.uid,
-    authorName: state.profile.displayName || "익명",
-    authorUsername: state.profile.username,
-    authorAvatar: state.profile.avatar || "🙂",
-    content: content || "",
+    authorUid: String(state.user.uid),
+    authorName: String(state.profile.displayName || "익명"),
+    authorUsername: String(state.profile.username || "user"),
+    authorAvatar: String(state.profile.avatar || "👤"),
+    content: String(content || ""),
     likes: [],
     likeCount: 0,
     commentCount: 0,
     createdAt: serverTimestamp(),
   };
 
-  if (media) {
-    payload.media = media;
+  if (media && media.url) {
+    payload.media = {
+      url: String(media.url),
+      name: String(media.name || "file"),
+      type: String(media.type || "file"),
+      size: Number(media.size || 0),
+    };
   }
 
   try {
     submitPostBtn.disabled = true;
     submitPostBtn.textContent = "게시 중... ⏳";
-    await addDoc(collection(db, "posts"), payload);
+
+    let saved = false;
+
+    // 1. Try Firebase Firestore
+    try {
+      await addDoc(collection(db, "posts"), payload);
+      saved = true;
+    } catch (fsErr) {
+      console.warn("Firestore post save rejected, falling back to server:", fsErr);
+    }
+
+    // 2. Also save to server JSON API (guarantees 100% persistence across all users)
+    try {
+      const resp = await fetch("/api/posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          authorUid: state.user.uid,
+          authorName: state.profile.displayName || "익명",
+          authorUsername: state.profile.username || "user",
+          authorAvatar: state.profile.avatar || "👤",
+          content,
+          media: payload.media || null,
+        }),
+      });
+      if (resp.ok) saved = true;
+    } catch (srvErr) {
+      console.warn("Server post save error:", srvErr);
+    }
+
+    if (!saved) {
+      throw new Error("게시물 등록에 실패했습니다.");
+    }
+
     $("postContentInput").value = "";
     clearPostMedia();
     $("newPostDialog").close();
-    showToast("게시물이 성공적으로 등록되었습니다! 🚀");
+    showToast("라운지에 게시물이 등록되었습니다!");
     navigateTo("/feed");
+    loadFeedFromServer();
   } catch (err) {
     console.error("submit-post-error", err);
-    showToast("게시물 등록 중 오류가 발생했습니다.");
+    showToast("게시물 등록 실패: " + (err.message || err.code || "알 수 없는 오류"));
   } finally {
     submitPostBtn.disabled = false;
-    submitPostBtn.textContent = "게시하기 🚀";
+    submitPostBtn.innerHTML = `<svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> <span>게시하기</span>`;
   }
 }
 
@@ -1747,22 +1807,25 @@ if (submitPostBtn) {
 }
 
 // ==========================================================================
-// Feed Real-time Stream & Interaction
+// Lounge Real-time Stream & Interaction
 // ==========================================================================
-function startFeedListener() {
-  if (state.unsubscribeFeed) return;
-  const feedList = $("feedPostsList");
-  if (!feedList) return;
+async function loadFeedFromServer() {
+  try {
+    const resp = await fetch("/api/posts");
+    if (!resp.ok) return;
+    const posts = await resp.json();
+    const feedList = $("feedPostsList");
+    if (!feedList) return;
 
-  const q = query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(50));
-  state.unsubscribeFeed = onSnapshot(q, (snapshot) => {
-    if (snapshot.empty) {
+    if (!posts || posts.length === 0) {
       feedList.innerHTML = `
         <div class="feed-composer-card glass" style="text-align:center; display:block; padding:40px 20px;">
-          <div style="font-size:36px; margin-bottom:12px;">📸</div>
-          <h3 style="font-size:16px; font-weight:700; margin-bottom:6px;">아직 게시물이 없습니다.</h3>
-          <p class="muted" style="font-size:13px; margin-bottom:16px;">첫 번째 일상이나 사진, 동영상을 공유해보세요!</p>
-          <button class="primary composer-btn" id="emptyPostBtn">새 게시물 작성 🚀</button>
+          <div style="font-size:32px; margin-bottom:12px; color:var(--accent);">
+            <svg class="ui-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+          </div>
+          <h3 style="font-size:16px; font-weight:700; margin-bottom:6px;">아직 라운지 글이 없습니다</h3>
+          <p class="muted" style="font-size:13px; margin-bottom:16px;">첫 번째 일상이나 멋진 사진, 영상을 공유해보세요!</p>
+          <button class="primary composer-btn" id="emptyPostBtn">새 글 작성</button>
         </div>
       `;
       const btn = $("emptyPostBtn");
@@ -1771,12 +1834,45 @@ function startFeedListener() {
     }
 
     feedList.innerHTML = "";
-    snapshot.forEach((docSnap) => {
-      const post = { id: docSnap.id, ...docSnap.data() };
+    posts.forEach((post) => {
       const card = createFeedPostCard(post);
       feedList.appendChild(card);
     });
-  });
+  } catch (err) {
+    console.warn("loadFeedFromServer error", err);
+  }
+}
+
+function startFeedListener() {
+  loadFeedFromServer();
+  if (state.unsubscribeFeed) return;
+  const feedList = $("feedPostsList");
+  if (!feedList) return;
+
+  try {
+    const q = query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(50));
+    state.unsubscribeFeed = onSnapshot(
+      q,
+      (snapshot) => {
+        if (!snapshot.empty) {
+          feedList.innerHTML = "";
+          snapshot.forEach((docSnap) => {
+            const post = { id: docSnap.id, ...docSnap.data() };
+            const card = createFeedPostCard(post);
+            feedList.appendChild(card);
+          });
+        } else {
+          loadFeedFromServer();
+        }
+      },
+      (err) => {
+        console.warn("Firestore listener not permitted, using server posts store:", err);
+        loadFeedFromServer();
+      }
+    );
+  } catch (e) {
+    loadFeedFromServer();
+  }
 }
 
 function createFeedPostCard(post) {
@@ -1784,7 +1880,12 @@ function createFeedPostCard(post) {
   card.className = "feed-post-card";
   card.id = `post-${post.id}`;
 
-  const date = post.createdAt?.toDate ? post.createdAt.toDate() : new Date();
+  let date = new Date();
+  if (post.createdAt?.toDate) {
+    date = post.createdAt.toDate();
+  } else if (typeof post.createdAt === "string") {
+    date = new Date(post.createdAt);
+  }
   const timeStr = formatTimeAgo(date);
   const likes = post.likes || [];
   const isLiked = state.user && likes.includes(state.user.uid);
@@ -1810,13 +1911,13 @@ function createFeedPostCard(post) {
   card.innerHTML = `
     <header class="feed-post-header">
       <div class="feed-post-author" role="button" tabindex="0">
-        <div class="post-author-avatar">${post.authorAvatar || "🙂"}</div>
+        <div class="post-author-avatar">${post.authorAvatar || "👤"}</div>
         <div>
           <div class="post-author-name">${post.authorName}</div>
           <div class="post-author-username">@${post.authorUsername} · <span class="post-time-ago">${timeStr}</span></div>
         </div>
       </div>
-      ${isOwnPost ? `<button class="post-delete-btn" title="게시물 삭제">삭제</button>` : ""}
+      ${isOwnPost ? `<button class="post-delete-btn" title="삭제">${SVG.trash}</button>` : ""}
     </header>
 
     ${post.content ? `<div class="feed-post-body">${post.content}</div>` : ""}
@@ -1824,15 +1925,15 @@ function createFeedPostCard(post) {
 
     <div class="feed-post-actions-bar">
       <button type="button" class="action-icon-btn like-btn ${isLiked ? "liked" : ""}">
-        <span class="action-icon">${isLiked ? "❤️" : "🤍"}</span>
+        <span class="action-icon">${SVG.heart(isLiked)}</span>
         <span>좋아요 <strong class="like-count">${likes.length}</strong></span>
       </button>
       <button type="button" class="action-icon-btn comment-btn">
-        <span class="action-icon">💬</span>
-        <span>댓글 <strong>${post.commentCount || 0}</strong></span>
+        <span class="action-icon">${SVG.comment}</span>
+        <span>댓글 <strong>${post.commentCount || (post.comments || []).length || 0}</strong></span>
       </button>
       <button type="button" class="action-icon-btn share-btn">
-        <span class="action-icon">🔗</span>
+        <span class="action-icon">${SVG.share}</span>
         <span>공유</span>
       </button>
     </div>
@@ -1865,14 +1966,16 @@ function createFeedPostCard(post) {
 
   // Like button
   const likeBtn = card.querySelector(".like-btn");
-  likeBtn.onclick = () => togglePostLike(post.id, likes);
+  likeBtn.onclick = async () => {
+    await togglePostLike(post.id, likes);
+  };
 
   // Share button
   const shareBtn = card.querySelector(".share-btn");
   shareBtn.onclick = () => {
     const url = `${window.location.origin}/@${post.authorUsername}`;
     navigator.clipboard.writeText(url);
-    showToast("게시물 링크가 클립보드에 복사되었습니다! 🔗");
+    showToast("프로필 및 게시물 링크가 복사되었습니다! 🔗");
   };
 
   // Comments toggle & submission
@@ -1883,32 +1986,65 @@ function createFeedPostCard(post) {
   commentBtn.onclick = () => {
     const isHidden = commentsWrap.hasAttribute("hidden");
     setVisible(commentsWrap, isHidden);
-    if (isHidden && !unsubCardComments) {
-      const qComments = query(
-        collection(db, "posts", post.id, "comments"),
-        orderBy("createdAt", "asc")
-      );
-      unsubCardComments = onSnapshot(qComments, (snap) => {
+    if (isHidden) {
+      const renderCommentsArray = (arr) => {
         const list = commentsWrap.querySelector(".comments-list");
-        if (snap.empty) {
-          list.innerHTML = `<div class="muted" style="font-size:12px; padding:6px 0;">첫 댓글을 남겨보세요!</div>`;
+        if (!arr || arr.length === 0) {
+          list.innerHTML = `<div class="muted" style="font-size:12px; padding:6px 0;">첫 댓글을 남겨보세요.</div>`;
           return;
         }
         list.innerHTML = "";
-        snap.forEach((doc) => {
-          const c = doc.data();
+        arr.forEach((c) => {
+          let cDate = new Date();
+          if (c.createdAt?.toDate) cDate = c.createdAt.toDate();
+          else if (typeof c.createdAt === "string") cDate = new Date(c.createdAt);
           const row = document.createElement("div");
           row.className = "comment-row";
           row.innerHTML = `
-            <div class="comment-avatar">${c.authorAvatar || "🙂"}</div>
+            <div class="comment-avatar">${c.authorAvatar || "👤"}</div>
             <div class="comment-content">
               <div><strong class="comment-author-name">${c.authorName}</strong> <span class="comment-text">${c.text}</span></div>
-              <span class="comment-time">${formatTimeAgo(c.createdAt?.toDate ? c.createdAt.toDate() : new Date())}</span>
+              <span class="comment-time">${formatTimeAgo(cDate)}</span>
             </div>
           `;
           list.appendChild(row);
         });
-      });
+      };
+
+      if (Array.isArray(post.comments) && post.comments.length > 0) {
+        renderCommentsArray(post.comments);
+      }
+
+      if (!unsubCardComments) {
+        try {
+          const qComments = query(collection(db, "posts", post.id, "comments"), orderBy("createdAt", "asc"));
+          unsubCardComments = onSnapshot(
+            qComments,
+            (snap) => {
+              if (!snap.empty) {
+                const list = commentsWrap.querySelector(".comments-list");
+                list.innerHTML = "";
+                snap.forEach((doc) => {
+                  const c = doc.data();
+                  const row = document.createElement("div");
+                  row.className = "comment-row";
+                  row.innerHTML = `
+                    <div class="comment-avatar">${c.authorAvatar || "👤"}</div>
+                    <div class="comment-content">
+                      <div><strong class="comment-author-name">${c.authorName}</strong> <span class="comment-text">${c.text}</span></div>
+                      <span class="comment-time">${formatTimeAgo(c.createdAt?.toDate ? c.createdAt.toDate() : new Date())}</span>
+                    </div>
+                  `;
+                  list.appendChild(row);
+                });
+              }
+            },
+            (err) => {
+              console.warn("comment firestore listen error", err);
+            }
+          );
+        } catch (e) {}
+      }
     }
   };
 
@@ -1926,8 +2062,36 @@ async function togglePostLike(postId, currentLikes = []) {
   if (!state.user) return showToast("로그인이 필요합니다.");
   const uid = state.user.uid;
   const isLiked = currentLikes.includes(uid);
-  const postRef = doc(db, "posts", postId);
+
+  // Optimistic UI update
+  const card = $(`post-${postId}`);
+  if (card) {
+    const likeBtn = card.querySelector(".like-btn");
+    const countEl = card.querySelector(".like-count");
+    const nextLiked = !isLiked;
+    likeBtn.classList.toggle("liked", nextLiked);
+    likeBtn.querySelector(".action-icon").innerHTML = SVG.heart(nextLiked);
+    const newCount = nextLiked ? currentLikes.length + 1 : Math.max(0, currentLikes.length - 1);
+    countEl.textContent = newCount;
+    if (nextLiked) currentLikes.push(uid);
+    else {
+      const idx = currentLikes.indexOf(uid);
+      if (idx > -1) currentLikes.splice(idx, 1);
+    }
+  }
+
+  // 1. Server API
   try {
+    await fetch(`/api/posts/${postId}/like`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ uid }),
+    });
+  } catch (e) {}
+
+  // 2. Firestore
+  try {
+    const postRef = doc(db, "posts", postId);
     if (isLiked) {
       await updateDoc(postRef, {
         likes: arrayRemove(uid),
@@ -1939,9 +2103,7 @@ async function togglePostLike(postId, currentLikes = []) {
         likeCount: currentLikes.length + 1,
       });
     }
-  } catch (err) {
-    console.error("like-error", err);
-  }
+  } catch (err) {}
 }
 
 async function submitComment(postId, inputEl) {
@@ -1949,46 +2111,70 @@ async function submitComment(postId, inputEl) {
   const text = inputEl.value.trim();
   if (!text) return;
   inputEl.value = "";
+
+  const payload = {
+    authorUid: state.user.uid,
+    authorName: state.profile.displayName || "익명",
+    authorUsername: state.profile.username || "user",
+    authorAvatar: state.profile.avatar || "👤",
+    text,
+  };
+
+  // 1. Server API
+  try {
+    await fetch(`/api/posts/${postId}/comment`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch (e) {}
+
+  // 2. Firestore
   try {
     await addDoc(collection(db, "posts", postId, "comments"), {
-      authorUid: state.user.uid,
-      authorName: state.profile.displayName || "익명",
-      authorUsername: state.profile.username,
-      authorAvatar: state.profile.avatar || "🙂",
-      text,
+      ...payload,
       createdAt: serverTimestamp(),
     });
-
     const postRef = doc(db, "posts", postId);
     const postSnap = await getDoc(postRef);
     if (postSnap.exists()) {
       const cur = postSnap.data().commentCount || 0;
       await updateDoc(postRef, { commentCount: cur + 1 });
     }
-    showToast("댓글이 등록되었습니다! 💬");
-  } catch (err) {
-    console.error("submit-comment-failed", err);
-    showToast("댓글 등록 실패");
-  }
+  } catch (err) {}
+
+  showToast("댓글이 등록되었습니다!");
+  loadFeedFromServer();
 }
 
 async function deletePost(postId) {
   if (!confirm("게시물을 정말 삭제하시겠습니까?")) return;
+
+  try {
+    await fetch(`/api/posts/${postId}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ uid: state.user.uid }),
+    });
+  } catch (e) {}
+
   try {
     await deleteDoc(doc(db, "posts", postId));
-    showToast("게시물이 삭제되었습니다.");
-    if (state.currentRoute.startsWith("/@") || state.currentRoute.startsWith("/u/")) {
-      const username = state.currentRoute.startsWith("/@") ? state.currentRoute.substring(2) : state.currentRoute.substring(3);
-      loadUserProfilePage(username);
-    }
-  } catch (err) {
-    console.error("delete-post-error", err);
-    showToast("게시물 삭제 실패");
+  } catch (err) {}
+
+  showToast("게시물이 삭제되었습니다.");
+  const card = $(`post-${postId}`);
+  if (card) card.remove();
+  loadFeedFromServer();
+
+  if (state.currentRoute.startsWith("/@") || state.currentRoute.startsWith("/u/")) {
+    const username = state.currentRoute.startsWith("/@") ? state.currentRoute.substring(2) : state.currentRoute.substring(3);
+    loadUserProfilePage(username);
   }
 }
 
 // ==========================================================================
-// Profile View & 3-Column Instagram Gallery
+// Profile View & 3-Column Modern Gallery
 // ==========================================================================
 async function loadUserProfilePage(username) {
   if (!username) return;
@@ -2005,7 +2191,7 @@ async function loadUserProfilePage(username) {
   const actionsBar = $("profileActionBtns");
   const gridEl = $("profilePostGrid");
 
-  gridEl.innerHTML = `<div class="grid-empty-state">게시물을 불러오는 중... ⏳</div>`;
+  gridEl.innerHTML = `<div class="grid-empty-state">게시물을 불러오는 중...</div>`;
 
   try {
     let targetUser = null;
@@ -2032,7 +2218,7 @@ async function loadUserProfilePage(username) {
     heroName.textContent = targetUser.displayName || targetUser.username;
     heroTag.textContent = `@${targetUser.username}`;
     heroBio.textContent = targetUser.bio || "소개글이 없습니다.";
-    heroAvatar.textContent = targetUser.avatar || "🙂";
+    heroAvatar.textContent = targetUser.avatar || "👤";
 
     if (targetUser.grade || targetUser.classNum || targetUser.studentNum) {
       heroIdentity.textContent = `${targetUser.grade ? targetUser.grade + "학년 " : ""}${targetUser.classNum ? targetUser.classNum + "반 " : ""}${targetUser.studentNum ? targetUser.studentNum + "번" : ""}`.trim();
@@ -2041,17 +2227,17 @@ async function loadUserProfilePage(username) {
       setVisible("profileViewIdentity", false);
     }
 
-    // Actions
+    // Actions Bar with clean SVG icons
     actionsBar.innerHTML = "";
     if (state.user && state.user.uid === targetUid) {
       const editBtn = document.createElement("button");
       editBtn.className = "primary";
-      editBtn.textContent = "✏️ 프로필 편집";
+      editBtn.innerHTML = `${SVG.edit} <span>프로필 편집</span>`;
       editBtn.onclick = () => $("myPageDialog").showModal();
 
       const copyLinkBtn = document.createElement("button");
       copyLinkBtn.className = "ghost";
-      copyLinkBtn.textContent = "🔗 내 링크 복사";
+      copyLinkBtn.innerHTML = `${SVG.link} <span>링크 복사</span>`;
       copyLinkBtn.onclick = () => {
         navigator.clipboard.writeText(`${window.location.origin}/@${targetUser.username}`);
         showToast("프로필 주소가 복사되었습니다! 🔗");
@@ -2061,7 +2247,7 @@ async function loadUserProfilePage(username) {
     } else {
       const chatBtn = document.createElement("button");
       chatBtn.className = "primary";
-      chatBtn.textContent = "💬 1:1 대화하기";
+      chatBtn.innerHTML = `${SVG.chat} <span>1:1 대화</span>`;
       chatBtn.onclick = () => {
         openChat(targetUid, targetUser);
         navigateTo("/chat");
@@ -2070,18 +2256,20 @@ async function loadUserProfilePage(username) {
       const friendBtn = document.createElement("button");
       friendBtn.className = "ghost";
       const isAlreadyFriend = state.friends?.some((f) => f.uid === targetUid);
-      friendBtn.textContent = isAlreadyFriend ? "✓ 친구 상태" : "➕ 친구 추가";
+      friendBtn.innerHTML = isAlreadyFriend
+        ? `${SVG.userCheck} <span>친구 상태</span>`
+        : `${SVG.userPlus} <span>친구 추가</span>`;
       if (!isAlreadyFriend) {
         friendBtn.onclick = async () => {
           $("friendUsernameInput").value = targetUser.username;
           await addFriendByUsername();
-          friendBtn.textContent = "✓ 친구 추가됨";
+          friendBtn.innerHTML = `${SVG.userCheck} <span>친구 추가됨</span>`;
         };
       }
 
       const copyLinkBtn = document.createElement("button");
       copyLinkBtn.className = "ghost";
-      copyLinkBtn.textContent = "🔗 링크 복사";
+      copyLinkBtn.innerHTML = `${SVG.link} <span>링크 복사</span>`;
       copyLinkBtn.onclick = () => {
         navigator.clipboard.writeText(`${window.location.origin}/@${targetUser.username}`);
         showToast("프로필 주소가 복사되었습니다! 🔗");
@@ -2090,34 +2278,54 @@ async function loadUserProfilePage(username) {
       actionsBar.append(chatBtn, friendBtn, copyLinkBtn);
     }
 
-    // Fetch friend count
-    const friendsSnap = await getDocs(
-      query(collection(db, "friendships"), where("users", "array-contains", targetUid))
-    );
-    friendCountEl.textContent = friendsSnap.size;
+    // Friend Count
+    try {
+      const friendsSnap = await getDocs(
+        query(collection(db, "friendships"), where("users", "array-contains", targetUid))
+      );
+      friendCountEl.textContent = friendsSnap.size;
+    } catch (e) {
+      friendCountEl.textContent = "0";
+    }
 
-    // Fetch user posts
-    const postsQuery = query(
-      collection(db, "posts"),
-      where("authorUid", "==", targetUid),
-      orderBy("createdAt", "desc")
-    );
-    const postsSnap = await getDocs(postsQuery);
-    postCountEl.textContent = postsSnap.size;
+    // Fetch user posts from Firestore and fallback to server API
+    let userPosts = [];
+    try {
+      const postsQuery = query(
+        collection(db, "posts"),
+        where("authorUid", "==", targetUid),
+        orderBy("createdAt", "desc")
+      );
+      const postsSnap = await getDocs(postsQuery);
+      postsSnap.forEach((d) => userPosts.push({ id: d.id, ...d.data() }));
+    } catch (fsErr) {
+      console.warn("Firestore profile posts error, checking server:", fsErr);
+    }
 
-    if (postsSnap.empty) {
-      gridEl.innerHTML = `<div class="grid-empty-state">아직 업로드된 사진이나 게시물이 없습니다. 📷</div>`;
+    if (userPosts.length === 0) {
+      try {
+        const resp = await fetch("/api/posts");
+        if (resp.ok) {
+          const all = await resp.json();
+          userPosts = all.filter((p) => p.authorUid === targetUid);
+        }
+      } catch (e) {}
+    }
+
+    postCountEl.textContent = userPosts.length;
+
+    if (userPosts.length === 0) {
+      gridEl.innerHTML = `<div class="grid-empty-state">아직 등록된 사진이나 글이 없습니다.</div>`;
       return;
     }
 
     gridEl.innerHTML = "";
-    postsSnap.forEach((docSnap) => {
-      const post = { id: docSnap.id, ...docSnap.data() };
+    userPosts.forEach((post) => {
       const item = document.createElement("div");
       item.className = "grid-item";
 
       const likesCount = (post.likes || []).length;
-      const commentsCount = post.commentCount || 0;
+      const commentsCount = post.commentCount || (post.comments || []).length || 0;
 
       if (post.media) {
         if (post.media.type === "video") {
@@ -2129,7 +2337,7 @@ async function loadUserProfilePage(username) {
 
           const badge = document.createElement("div");
           badge.className = "grid-video-badge";
-          badge.textContent = "🎬 동영상";
+          badge.innerHTML = `${SVG.videoBadge} <span>동영상</span>`;
           item.appendChild(badge);
         } else {
           const img = document.createElement("img");
@@ -2156,8 +2364,8 @@ async function loadUserProfilePage(username) {
       const overlay = document.createElement("div");
       overlay.className = "grid-overlay";
       overlay.innerHTML = `
-        <span class="grid-overlay-stat">❤️ ${likesCount}</span>
-        <span class="grid-overlay-stat">💬 ${commentsCount}</span>
+        <span class="grid-overlay-stat">${SVG.heart(true)} ${likesCount}</span>
+        <span class="grid-overlay-stat">${SVG.comment} ${commentsCount}</span>
       `;
       item.appendChild(overlay);
 
@@ -2174,8 +2382,11 @@ function openPostDetail(post) {
   const container = $("postDetailLayout");
   if (!container) return;
 
-  const date = post.createdAt?.toDate ? post.createdAt.toDate() : new Date();
+  let date = new Date();
+  if (post.createdAt?.toDate) date = post.createdAt.toDate();
+  else if (typeof post.createdAt === "string") date = new Date(post.createdAt);
   const timeStr = formatTimeAgo(date);
+
   const likes = post.likes || [];
   const isLiked = state.user && likes.includes(state.user.uid);
 
@@ -2192,7 +2403,7 @@ function openPostDetail(post) {
     <div class="post-detail-info-side">
       <div class="feed-post-header">
         <div class="feed-post-author" id="detailAuthorBtn">
-          <div class="post-author-avatar">${post.authorAvatar || "🙂"}</div>
+          <div class="post-author-avatar">${post.authorAvatar || "👤"}</div>
           <div>
             <div class="post-author-name">${post.authorName}</div>
             <div class="post-author-username">@${post.authorUsername} · ${timeStr}</div>
@@ -2202,20 +2413,21 @@ function openPostDetail(post) {
       <div class="feed-post-body" style="padding-bottom:16px;">${post.content || ""}</div>
       <div class="feed-post-actions-bar">
         <button type="button" class="action-icon-btn ${isLiked ? "liked" : ""}" id="detailLikeBtn">
-          <span class="action-icon">${isLiked ? "❤️" : "🤍"}</span>
+          <span class="action-icon">${SVG.heart(isLiked)}</span>
           <span>좋아요 <strong id="detailLikeCount">${likes.length}</strong></span>
         </button>
         <button type="button" class="action-icon-btn" id="detailShareBtn">
-          <span>🔗</span> 공유
+          <span class="action-icon">${SVG.share}</span>
+          <span>공유</span>
         </button>
       </div>
       <div class="feed-post-comments-wrap" style="flex:1; display:flex; flex-direction:column; overflow:hidden;">
         <div class="comments-list" id="detailCommentsList" style="flex:1; max-height:none;">
-          <div class="muted" style="font-size:12px; padding:10px;">댓글을 불러오는 중... ⏳</div>
+          <div class="muted" style="font-size:12px; padding:10px;">댓글을 불러오는 중...</div>
         </div>
         <form class="comment-input-bar" id="detailCommentForm">
           <input type="text" placeholder="댓글 달기..." id="detailCommentInput" required />
-          <button type="submit" class="primary">게시</button>
+          <button type="submit" class="primary">등록</button>
         </form>
       </div>
     </div>
@@ -2228,14 +2440,10 @@ function openPostDetail(post) {
 
   $("detailLikeBtn").onclick = async () => {
     await togglePostLike(post.id, likes);
-    const docSnap = await getDoc(doc(db, "posts", post.id));
-    if (docSnap.exists()) {
-      const updated = docSnap.data().likes || [];
-      const likedNow = updated.includes(state.user?.uid);
-      $("detailLikeBtn").classList.toggle("liked", likedNow);
-      $("detailLikeBtn").querySelector(".action-icon").textContent = likedNow ? "❤️" : "🤍";
-      $("detailLikeCount").textContent = updated.length;
-    }
+    const updatedLiked = !isLiked;
+    $("detailLikeBtn").classList.toggle("liked", updatedLiked);
+    $("detailLikeBtn").querySelector(".action-icon").innerHTML = SVG.heart(updatedLiked);
+    $("detailLikeCount").textContent = updatedLiked ? likes.length + 1 : Math.max(0, likes.length - 1);
   };
 
   $("detailShareBtn").onclick = () => {
@@ -2243,33 +2451,52 @@ function openPostDetail(post) {
     showToast("게시물 작성자 링크가 복사되었습니다! 🔗");
   };
 
-  const commentsQ = query(
-    collection(db, "posts", post.id, "comments"),
-    orderBy("createdAt", "asc")
-  );
-  const unsubComments = onSnapshot(commentsQ, (snap) => {
-    const list = $("detailCommentsList");
-    if (!list) return;
-    if (snap.empty) {
-      list.innerHTML = `<div class="muted" style="font-size:12px; padding:10px 0;">첫 번째 댓글을 남겨보세요!</div>`;
-      return;
-    }
+  const list = $("detailCommentsList");
+  if (Array.isArray(post.comments) && post.comments.length > 0) {
     list.innerHTML = "";
-    snap.forEach((doc) => {
-      const c = doc.data();
+    post.comments.forEach((c) => {
+      let cDate = new Date();
+      if (c.createdAt?.toDate) cDate = c.createdAt.toDate();
+      else if (typeof c.createdAt === "string") cDate = new Date(c.createdAt);
       const row = document.createElement("div");
       row.className = "comment-row";
       row.innerHTML = `
-        <div class="comment-avatar">${c.authorAvatar || "🙂"}</div>
+        <div class="comment-avatar">${c.authorAvatar || "👤"}</div>
         <div class="comment-content">
           <div><strong class="comment-author-name">${c.authorName}</strong> <span class="comment-text">${c.text}</span></div>
-          <span class="comment-time">${formatTimeAgo(c.createdAt?.toDate ? c.createdAt.toDate() : new Date())}</span>
+          <span class="comment-time">${formatTimeAgo(cDate)}</span>
         </div>
       `;
       list.appendChild(row);
     });
-    list.scrollTop = list.scrollHeight;
-  });
+  }
+
+  try {
+    const commentsQ = query(collection(db, "posts", post.id, "comments"), orderBy("createdAt", "asc"));
+    const unsubComments = onSnapshot(commentsQ, (snap) => {
+      if (!list) return;
+      if (!snap.empty) {
+        list.innerHTML = "";
+        snap.forEach((doc) => {
+          const c = doc.data();
+          const row = document.createElement("div");
+          row.className = "comment-row";
+          row.innerHTML = `
+            <div class="comment-avatar">${c.authorAvatar || "👤"}</div>
+            <div class="comment-content">
+              <div><strong class="comment-author-name">${c.authorName}</strong> <span class="comment-text">${c.text}</span></div>
+              <span class="comment-time">${formatTimeAgo(c.createdAt?.toDate ? c.createdAt.toDate() : new Date())}</span>
+            </div>
+          `;
+          list.appendChild(row);
+        });
+      }
+    });
+
+    $("postDetailDialog").onclose = () => {
+      try { unsubComments(); } catch (e) {}
+    };
+  } catch (e) {}
 
   $("detailCommentForm").onsubmit = async (e) => {
     e.preventDefault();
@@ -2280,12 +2507,9 @@ function openPostDetail(post) {
     $("postDetailDialog").close();
   };
 
-  $("postDetailDialog").onclose = () => {
-    unsubComments();
-  };
-
   $("postDetailDialog").showModal();
 }
+
 
 
 

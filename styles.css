@@ -936,6 +936,13 @@ menu {
 /* ==========================================================================
    Top Navigation Bar
    ========================================================================== */
+.ui-icon {
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+  stroke: currentColor;
+}
+
 .app-top-nav {
   height: 56px;
   background: var(--bg-sidebar);

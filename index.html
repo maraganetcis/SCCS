@@ -75,25 +75,26 @@
 
         <nav class="nav-menu">
           <button id="navChatBtn" class="nav-item active" data-path="/chat">
-            <span class="nav-icon">💬</span>
+            <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
             <span class="nav-label">채팅</span>
           </button>
           <button id="navFeedBtn" class="nav-item" data-path="/feed">
-            <span class="nav-icon">📸</span>
-            <span class="nav-label">스토리 피드</span>
+            <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+            <span class="nav-label">라운지</span>
           </button>
           <button id="navProfileBtn" class="nav-item" data-path="/me">
-            <span class="nav-icon">👤</span>
-            <span class="nav-label">내 프로필</span>
+            <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <span class="nav-label">프로필</span>
           </button>
         </nav>
 
         <div class="nav-actions">
           <button id="openNewPostBtn" class="new-post-btn primary">
-            <span>➕</span> 새 게시물
+            <svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span>새 글 작성</span>
           </button>
           <button id="topMyPageBtn" class="ghost nav-user-btn" title="마이페이지">
-            <span id="topMyAvatar" class="avatar-tiny">🙂</span>
+            <span id="topMyAvatar" class="avatar-tiny">👤</span>
             <span id="topMyName">마이페이지</span>
           </button>
         </div>
@@ -149,11 +150,20 @@
             <input type="file" id="imageFileInput" accept="image/*" style="display:none;" />
             <input type="file" id="videoFileInput" accept="video/*,video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm,.m4v,.avi,.mkv" style="display:none;" />
             <input type="file" id="mediaFileInput" style="display:none;" />
-            <button id="attachImgBtn" type="button" class="icon-btn" title="사진 첨부 (📷)">📷</button>
-            <button id="attachVideoBtn" type="button" class="icon-btn" title="동영상 첨부 (🎬)">🎬</button>
-            <button id="attachFileBtn" type="button" class="icon-btn" title="모든 파일 / 문서 첨부 (📎)">📎</button>
+            <button id="attachImgBtn" type="button" class="icon-btn" title="사진 첨부">
+              <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            </button>
+            <button id="attachVideoBtn" type="button" class="icon-btn" title="동영상 첨부">
+              <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+            </button>
+            <button id="attachFileBtn" type="button" class="icon-btn" title="파일 첨부">
+              <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            </button>
             <input id="messageInput" type="text" placeholder="메시지를 입력하거나 사진/동영상/파일을 붙여넣으세요..." />
-            <button id="sendBtn">전송</button>
+            <button id="sendBtn" class="send-btn">
+              <svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              <span>전송</span>
+            </button>
           </footer>
         </main>
 
@@ -186,21 +196,24 @@
         </aside>
       </div>
 
-      <!-- View 2: Feed View (Instagram-style) -->
+      <!-- View 2: Lounge View (Clean school community) -->
       <div id="viewFeed" class="view-panel view-feed hidden" hidden>
         <div class="feed-layout">
-          <!-- Feed Composer Card -->
+          <!-- Lounge Composer Card -->
           <div class="feed-composer-card glass" id="feedComposerCard">
-            <div class="composer-avatar" id="composerAvatar">🙂</div>
+            <div class="composer-avatar" id="composerAvatar">👤</div>
             <div class="composer-input-fake" id="composerTriggerBtn">
-              사진, 동영상이나 오늘의 일상을 친구들과 공유해보세요...
+              오늘의 일상이나 나누고 싶은 사진, 영상을 라운지에 공유해보세요...
             </div>
-            <button id="composerOpenBtn" class="primary composer-btn">➕ 새 글 쓰기</button>
+            <button id="composerOpenBtn" class="primary composer-btn">
+              <svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <span>새 글 쓰기</span>
+            </button>
           </div>
 
-          <!-- Feed Posts List -->
+          <!-- Lounge Posts List -->
           <div id="feedPostsList" class="feed-posts-list">
-            <div class="feed-loading muted">게시물을 불러오는 중입니다... ⏳</div>
+            <div class="feed-loading muted">게시물을 불러오는 중입니다...</div>
           </div>
         </div>
       </div>
@@ -211,7 +224,7 @@
           <!-- Profile Header Card -->
           <div class="profile-hero">
             <div class="profile-hero-avatar-wrap">
-              <div class="profile-hero-avatar" id="profileViewAvatar">🙂</div>
+              <div class="profile-hero-avatar" id="profileViewAvatar">👤</div>
             </div>
             <div class="profile-hero-content">
               <div class="profile-hero-name-row">
@@ -234,7 +247,10 @@
 
           <!-- Profile Gallery Nav -->
           <div class="profile-gallery-header">
-            <h3><span>📸</span> 업로드한 스토리 및 사진첩</h3>
+            <h3>
+              <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+              <span>업로드한 미디어 & 사진첩</span>
+            </h3>
           </div>
 
           <!-- 3-Column Instagram Grid -->
@@ -288,23 +304,26 @@
       </form>
     </dialog>
 
-    <!-- Create Post Dialog (Instagram/Kakao Story style) -->
+    <!-- Create Post Dialog -->
     <dialog id="newPostDialog" class="post-composer-dialog">
       <div class="composer-modal-box glass">
         <header class="composer-modal-header">
-          <h3><span>✨</span> 새 스토리 / 게시물 작성</h3>
+          <h3>
+            <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span>라운지 새 게시물 작성</span>
+          </h3>
           <button id="closePostModalBtn" type="button" class="close-x-btn">&times;</button>
         </header>
 
         <div class="composer-author-bar">
-          <div class="avatar-small" id="postModalAvatar">🙂</div>
+          <div class="avatar-small" id="postModalAvatar">👤</div>
           <div>
             <strong id="postModalDisplayName">작성자</strong>
             <span class="muted" id="postModalTag" style="font-size:12px; margin-left:4px;">@-</span>
           </div>
         </div>
 
-        <textarea id="postContentInput" class="composer-textarea" placeholder="오늘 어떤 일이 있었나요? 친구들에게 들려주고 싶은 이야기나 사진, 동영상을 공유해보세요..." rows="4"></textarea>
+        <textarea id="postContentInput" class="composer-textarea" placeholder="오늘 어떤 일이 있었나요? 나누고 싶은 이야기나 사진, 동영상을 자유롭게 올려보세요..." rows="4"></textarea>
 
         <!-- Post Media Preview Area -->
         <div id="postMediaPreviewWrap" class="post-media-preview-wrap hidden" hidden>
@@ -325,15 +344,20 @@
             <input type="file" id="postImgInput" accept="image/*" style="display:none;" />
             <input type="file" id="postVideoInput" accept="video/*,video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm,.m4v,.avi,.mkv" style="display:none;" />
             <button id="postAddImgBtn" type="button" class="tool-btn" title="사진 추가">
-              <span>📷</span> 사진 추가
+              <svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              <span>사진 추가</span>
             </button>
             <button id="postAddVideoBtn" type="button" class="tool-btn" title="동영상 추가">
-              <span>🎬</span> 동영상 추가
+              <svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+              <span>동영상 추가</span>
             </button>
           </div>
           <div class="composer-submit-wrap">
             <button id="cancelPostBtn" type="button" class="ghost">취소</button>
-            <button id="submitPostBtn" type="button" class="primary">게시하기 🚀</button>
+            <button id="submitPostBtn" type="button" class="primary">
+              <svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              <span>게시하기</span>
+            </button>
           </div>
         </footer>
       </div>

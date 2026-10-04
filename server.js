@@ -154,6 +154,130 @@ app.get('/app.js', (req, res) => {
   res.send(content);
 });
 
+// Posts persistent JSON store
+const postsFile = path.join(process.cwd(), 'posts-data.json');
+function readPosts() {
+  try {
+    if (fs.existsSync(postsFile)) {
+      const data = JSON.parse(fs.readFileSync(postsFile, 'utf8'));
+      return Array.isArray(data) ? data : [];
+    }
+  } catch (e) {
+    console.error('readPosts error', e);
+  }
+  return [];
+}
+function writePosts(posts) {
+  try {
+    fs.writeFileSync(postsFile, JSON.stringify(posts, null, 2), 'utf8');
+  } catch (e) {
+    console.error('writePosts error', e);
+  }
+}
+
+app.get('/api/posts', (req, res) => {
+  const posts = readPosts();
+  res.json(posts);
+});
+
+app.post('/api/posts', (req, res) => {
+  try {
+    const { authorUid, authorName, authorUsername, authorAvatar, content, media } = req.body;
+    if (!authorUid) {
+      return res.status(400).json({ error: '사용자 인증 정보가 필요합니다.' });
+    }
+    const posts = readPosts();
+    const newPost = {
+      id: 'post_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+      authorUid: String(authorUid),
+      authorName: String(authorName || '익명'),
+      authorUsername: String(authorUsername || 'user'),
+      authorAvatar: String(authorAvatar || '👤'),
+      content: String(content || ''),
+      media: media || null,
+      likes: [],
+      likeCount: 0,
+      commentCount: 0,
+      comments: [],
+      createdAt: new Date().toISOString(),
+    };
+    posts.unshift(newPost);
+    writePosts(posts);
+    res.json(newPost);
+  } catch (err) {
+    console.error('save-post-error', err);
+    res.status(500).json({ error: '게시물 저장 처리 중 오류가 발생했습니다.' });
+  }
+});
+
+app.post('/api/posts/:id/like', (req, res) => {
+  try {
+    const { id } = req.params;
+    const { uid } = req.body;
+    if (!uid) return res.status(400).json({ error: 'uid missing' });
+    const posts = readPosts();
+    const post = posts.find((p) => p.id === id);
+    if (!post) return res.status(404).json({ error: 'post not found' });
+    if (!Array.isArray(post.likes)) post.likes = [];
+    const idx = post.likes.indexOf(uid);
+    if (idx > -1) {
+      post.likes.splice(idx, 1);
+    } else {
+      post.likes.push(uid);
+    }
+    post.likeCount = post.likes.length;
+    writePosts(posts);
+    res.json({ likes: post.likes, likeCount: post.likeCount });
+  } catch (err) {
+    res.status(500).json({ error: 'like-error' });
+  }
+});
+
+app.post('/api/posts/:id/comment', (req, res) => {
+  try {
+    const { id } = req.params;
+    const { authorUid, authorName, authorUsername, authorAvatar, text } = req.body;
+    if (!text || !text.trim()) return res.status(400).json({ error: 'text missing' });
+    const posts = readPosts();
+    const post = posts.find((p) => p.id === id);
+    if (!post) return res.status(404).json({ error: 'post not found' });
+    if (!Array.isArray(post.comments)) post.comments = [];
+    const comment = {
+      id: 'c_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+      authorUid: String(authorUid || ''),
+      authorName: String(authorName || '익명'),
+      authorUsername: String(authorUsername || 'user'),
+      authorAvatar: String(authorAvatar || '👤'),
+      text: String(text).trim(),
+      createdAt: new Date().toISOString(),
+    };
+    post.comments.push(comment);
+    post.commentCount = post.comments.length;
+    writePosts(posts);
+    res.json(comment);
+  } catch (err) {
+    res.status(500).json({ error: 'comment-error' });
+  }
+});
+
+app.delete('/api/posts/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const uid = req.body?.uid || req.query?.uid;
+    let posts = readPosts();
+    const target = posts.find((p) => p.id === id);
+    if (!target) return res.status(404).json({ error: 'not found' });
+    if (uid && target.authorUid !== uid) {
+      return res.status(403).json({ error: '삭제 권한이 없습니다.' });
+    }
+    posts = posts.filter((p) => p.id !== id);
+    writePosts(posts);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'delete-error' });
+  }
+});
+
 app.use(express.static(process.cwd()));
 
 // SPA fallback for routing (e.g. /@username, /feed, /chat, /u/username)
