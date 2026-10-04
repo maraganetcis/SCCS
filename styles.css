@@ -455,13 +455,32 @@ button.google:hover {
 
 /* Notice / Toast */
 .toast {
-  background: #0F172A;
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: rgba(15, 23, 42, 0.94);
   color: #F8FAFC;
-  border: 1px solid #334155;
-  border-radius: var(--radius-md);
-  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 9999px;
+  padding: 10px 22px;
   font-size: 13px;
-  box-shadow: var(--shadow-md);
+  font-weight: 500;
+  box-shadow: 0 12px 30px -4px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+  z-index: 99999;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1), transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  max-width: 90vw;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 /* Modal Dialog */

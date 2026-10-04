@@ -127,6 +127,20 @@ app.post('/api/upload', (req, res) => {
 // Serve uploaded files statically
 app.use('/uploads', express.static(uploadsDir, { maxAge: '30d' }));
 
+app.get('/firebase-messaging-sw.js', (req, res) => {
+  const filePath = path.join(process.cwd(), 'firebase-messaging-sw.js');
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).send('Not found');
+  }
+  let content = fs.readFileSync(filePath, 'utf8');
+  if (process.env.FIREBASE_API_KEY && process.env.FIREBASE_API_KEY.trim()) {
+    content = content.replace('AIzaSyA5FX6asrpW83siWWh-j9kltfIJKsY952o', process.env.FIREBASE_API_KEY.trim());
+  }
+  res.setHeader('Service-Worker-Allowed', '/');
+  res.type('application/javascript');
+  res.send(content);
+});
+
 app.get('/app.js', (req, res) => {
   const filePath = path.join(process.cwd(), 'app.js');
   if (!fs.existsSync(filePath)) {

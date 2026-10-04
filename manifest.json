@@ -1,0 +1,17 @@
+{
+  "name": "SCCS - 신촌중학교 채팅서비스",
+  "short_name": "SCCS",
+  "description": "신촌중학교 학생 및 모두를 위한 실시간 메신저 플랫폼",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

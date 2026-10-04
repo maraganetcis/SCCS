@@ -27,6 +27,12 @@ import {
   endAt,
   limit,
 } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
+import {
+  getMessaging,
+  getToken,
+  onMessage,
+  isSupported as isMessagingSupported,
+} from "https://www.gstatic.com/firebasejs/10.12.3/firebase-messaging.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyA5FX6asrpW83siWWh-j9kltfIJKsY952o",
@@ -56,10 +62,16 @@ const state = {
   isUploading: false,
 };
 
+let toastTimeout = null;
 function showToast(message) {
   const toast = $("toast");
   if (toast) {
     toast.textContent = message;
+    toast.classList.add("show");
+    if (toastTimeout) clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(() => {
+      toast.classList.remove("show");
+    }, 2800);
     return;
   }
   console.info("toast:", message);
@@ -371,10 +383,63 @@ function switchRightTab(tab) {
 }
 
 // Notification & Audio System
+const VAPID_KEY = "BEo9-AHEqGSjdAjofAS7k2d1j86YAqPDZFETfVuCEE92C6C5vSlOEQskBtEm1cGAANCZ24bVpCHhUMU9PaLE4lA";
 let audioCtx = null;
 let titleInterval = null;
 const originalDocTitle = document.title || "SCCS - 신촌중학교 채팅서비스";
 const friendListeners = new Map();
+let messagingInstance = null;
+let swRegistration = null;
+
+async function initMessaging() {
+  if (!("serviceWorker" in navigator)) return null;
+  try {
+    const supported = await isMessagingSupported();
+    if (!supported) return null;
+
+    if (!messagingInstance) {
+      messagingInstance = getMessaging(app);
+      onMessage(messagingInstance, (payload) => {
+        console.log("FCM 포그라운드 메시지:", payload);
+        const title = payload.notification?.title || payload.data?.title || "SCCS 새 메시지 🔔";
+        const body = payload.notification?.body || payload.data?.body || "새로운 메시지가 도착했습니다.";
+        triggerNotification(title, body);
+      });
+    }
+
+    if (!swRegistration) {
+      swRegistration = await navigator.serviceWorker.register("/firebase-messaging-sw.js", { scope: "/" });
+      console.log("Service Worker 등록 완료:", swRegistration.scope);
+    }
+    return messagingInstance;
+  } catch (err) {
+    console.warn("FCM init error:", err);
+    return null;
+  }
+}
+
+async function syncFcmToken() {
+  if (!state.user) return null;
+  try {
+    const msg = await initMessaging();
+    if (!msg || !swRegistration) return null;
+    if (Notification.permission !== "granted") return null;
+
+    const token = await getToken(msg, {
+      vapidKey: VAPID_KEY,
+      serviceWorkerRegistration: swRegistration,
+    });
+    if (token) {
+      console.log("FCM 디바이스 푸시 토큰 동기화 완료:", token);
+      const userRef = doc(db, "users", state.user.uid);
+      await setDoc(userRef, { fcmToken: token, lastTokenUpdate: serverTimestamp() }, { merge: true });
+      return token;
+    }
+  } catch (err) {
+    console.warn("FCM 토큰 발급/동기화 실패:", err);
+  }
+  return null;
+}
 
 function getAudioContext() {
   if (!audioCtx) {
@@ -437,7 +502,7 @@ function updateNotifStatusBadge() {
   }
 
   if (Notification.permission === "granted") {
-    badge.textContent = "알림 켜짐 🔔";
+    badge.textContent = "알림 켜짐 🔔 (백그라운드 푸시)";
     badge.style.background = "#DCFCE7";
     badge.style.color = "#16A34A";
     if (btn) btn.textContent = "알림 켜짐 ✓";
@@ -464,6 +529,7 @@ async function requestNotificationPermission() {
     showToast("알림이 이미 켜져 있습니다! 🔔");
     playNotificationSound();
     updateNotifStatusBadge();
+    syncFcmToken();
     return true;
   }
   try {
@@ -471,7 +537,8 @@ async function requestNotificationPermission() {
     updateNotifStatusBadge();
     if (permission === "granted") {
       playNotificationSound();
-      showToast("알림이 성공적으로 활성화되었습니다! 🔔");
+      showToast("알림 및 백그라운드 푸시가 성공적으로 활성화되었습니다! 🔔");
+      syncFcmToken();
       try {
         new Notification("SCCS 채팅 알림 켜짐", {
           body: "새 메시지가 도착하면 소리와 시스템 알림창으로 알려드립니다.",
@@ -488,6 +555,42 @@ async function requestNotificationPermission() {
     return false;
   }
 }
+
+let hasRequestedAutoNotif = false;
+async function autoRequestNotification(silent = false) {
+  if (!("Notification" in window)) return;
+  if (Notification.permission === "granted") {
+    syncFcmToken();
+    return;
+  }
+  if (Notification.permission !== "default" || hasRequestedAutoNotif) return;
+  hasRequestedAutoNotif = true;
+
+  try {
+    getAudioContext();
+    const permission = await Notification.requestPermission();
+    updateNotifStatusBadge();
+    if (permission === "granted") {
+      playNotificationSound();
+      syncFcmToken();
+      if (!silent) {
+        showToast("실시간 및 백그라운드 알림이 자동 활성화되었습니다! 🔔");
+      }
+    }
+  } catch (err) {
+    console.warn("auto-notif-failed", err);
+  }
+}
+
+function setupAutoNotificationTriggers() {
+  const trigger = () => {
+    autoRequestNotification(true);
+  };
+  window.addEventListener("click", trigger, { once: true });
+  window.addEventListener("touchstart", trigger, { once: true });
+  window.addEventListener("keydown", trigger, { once: true });
+}
+setupAutoNotificationTriggers();
 
 function testNotification() {
   getAudioContext();
@@ -1072,6 +1175,7 @@ function appendMediaToBubble(m, bubble) {
 }
 
 function openChat(friendUid, friend) {
+  autoRequestNotification();
   state.selectedFriend = { uid: friendUid, ...friend };
   $("chatTitle").textContent = `${friend.avatar || "🙂"} ${friend.displayName}`;
   $("chatSubtitle").textContent = friend.bio || "";
@@ -1166,6 +1270,7 @@ async function bootApp() {
   bindProfile();
   await renderFriends();
   updateNotifStatusBadge();
+  syncFcmToken();
   setVisible("authGate", false);
   setVisible("usernameGate", false);
   setVisible("appShell", true);
@@ -1194,8 +1299,14 @@ getRedirectResult(auth).catch((error) => {
   showToast(friendlyErrorMessage(error));
 });
 
-$("googleBtn").onclick = () => loginWithGoogle().catch((e) => showGateError(friendlyErrorMessage(e)));
-$("completeOnboardingBtn").onclick = () => completeOnboarding().catch((e) => showGateError(friendlyErrorMessage(e)));
+$("googleBtn").onclick = () => {
+  autoRequestNotification();
+  loginWithGoogle().catch((e) => showGateError(friendlyErrorMessage(e)));
+};
+$("completeOnboardingBtn").onclick = () => {
+  autoRequestNotification();
+  completeOnboarding().catch((e) => showGateError(friendlyErrorMessage(e)));
+};
 $("addFriendBtn").onclick = () => addFriendByUsername().catch((e) => showToast(friendlyErrorMessage(e)));
 $("sendBtn").onclick = () => sendMessage().catch((e) => showToast(friendlyErrorMessage(e)));
 $("messageInput").addEventListener("keydown", (e) => {
