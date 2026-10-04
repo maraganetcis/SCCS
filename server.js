@@ -141,7 +141,7 @@ app.get('/firebase-messaging-sw.js', (req, res) => {
   res.send(content);
 });
 
-app.get('/app.js', (req, res) => {
+app.get(['/app.js', '*/app.js'], (req, res) => {
   const filePath = path.join(process.cwd(), 'app.js');
   if (!fs.existsSync(filePath)) {
     return res.status(404).send('Not found');
@@ -152,6 +152,14 @@ app.get('/app.js', (req, res) => {
   }
   res.type('application/javascript');
   res.send(content);
+});
+
+app.get(['/styles.css', '*/styles.css'], (req, res) => {
+  res.sendFile(path.join(process.cwd(), 'styles.css'));
+});
+
+app.get(['/favicon.svg', '*/favicon.svg'], (req, res) => {
+  res.sendFile(path.join(process.cwd(), 'favicon.svg'));
 });
 
 // Posts persistent JSON store
@@ -280,10 +288,10 @@ app.delete('/api/posts/:id', (req, res) => {
 
 app.use(express.static(process.cwd()));
 
-// SPA fallback for routing (e.g. /@username, /feed, /chat, /u/username)
+// SPA fallback for routing (e.g. /@username, /feed, /chat, /lounge, etc.)
 app.get('*', (req, res) => {
-  if (req.path.includes('.') && !req.path.endsWith('.html')) {
-    return res.status(404).send('Not found');
+  if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) {
+    return res.status(404).json({ error: 'Not found' });
   }
   res.sendFile(path.join(process.cwd(), 'index.html'));
 });

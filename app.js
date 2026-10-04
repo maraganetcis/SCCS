@@ -1286,7 +1286,7 @@ async function bootApp() {
   setVisible("authGate", false);
   setVisible("usernameGate", false);
   setVisible("appShell", true);
-  handleRoute(window.location.pathname);
+  handleRoute(getCurrentRoute());
 }
 
 onAuthStateChanged(auth, async (user) => {
@@ -1510,15 +1510,29 @@ function formatTimeAgo(date) {
   return `${date.getFullYear()}.${date.getMonth() + 1}.${date.getDate()}`;
 }
 
-function navigateTo(path, push = true) {
-  if (push) {
-    window.history.pushState(null, "", path);
+function getCurrentRoute() {
+  if (window.location.hash && window.location.hash.length > 1) {
+    const rawHash = window.location.hash.substring(1);
+    return rawHash.startsWith("/") ? rawHash : "/" + rawHash;
   }
-  handleRoute(path);
+  return window.location.pathname || "/";
 }
 
-function handleRoute(path = window.location.pathname) {
-  let clean = (path || "/").trim().replace(/\/+$/, "") || "/";
+function navigateTo(path, push = true) {
+  const normPath = path.startsWith("/") ? path : "/" + path;
+  if (push) {
+    try {
+      window.history.pushState(null, "", normPath);
+    } catch (e) {}
+    try {
+      window.location.hash = normPath;
+    } catch (e) {}
+  }
+  handleRoute(normPath);
+}
+
+function handleRoute(path = getCurrentRoute()) {
+  let clean = (path || "/").trim().replace(/^#\/?/, "/").replace(/\/+$/, "") || "/";
   if (clean.startsWith("/profile/")) {
     clean = "/@" + clean.substring(9);
   }
@@ -1566,7 +1580,10 @@ function handleRoute(path = window.location.pathname) {
 }
 
 window.addEventListener("popstate", () => {
-  handleRoute(window.location.pathname);
+  handleRoute(getCurrentRoute());
+});
+window.addEventListener("hashchange", () => {
+  handleRoute(getCurrentRoute());
 });
 
 // Top Nav Listeners
@@ -1752,39 +1769,43 @@ async function submitPost() {
 
   try {
     submitPostBtn.disabled = true;
-    submitPostBtn.textContent = "게시 중... ⏳";
+    submitPostBtn.textContent = "게시 중...";
 
     let saved = false;
 
-    // 1. Try Firebase Firestore
-    try {
-      await addDoc(collection(db, "posts"), payload);
-      saved = true;
-    } catch (fsErr) {
-      console.warn("Firestore post save rejected, falling back to server:", fsErr);
-    }
-
-    // 2. Also save to server JSON API (guarantees 100% persistence across all users)
+    // 1. Save to server API first (instant, 100% reliable)
     try {
       const resp = await fetch("/api/posts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           authorUid: state.user.uid,
-          authorName: state.profile.displayName || "익명",
-          authorUsername: state.profile.username || "user",
-          authorAvatar: state.profile.avatar || "👤",
+          authorName: state.profile?.displayName || "익명",
+          authorUsername: state.profile?.username || "user",
+          authorAvatar: state.profile?.avatar || "👤",
           content,
           media: payload.media || null,
         }),
       });
-      if (resp.ok) saved = true;
+      if (resp.ok) {
+        saved = true;
+      }
     } catch (srvErr) {
       console.warn("Server post save error:", srvErr);
     }
 
+    // 2. Also try Firebase Firestore with a short timeout so it never hangs
+    try {
+      const fsWrite = addDoc(collection(db, "posts"), payload);
+      const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 1500));
+      await Promise.race([fsWrite, timeout]);
+      saved = true;
+    } catch (fsErr) {
+      console.warn("Firestore post save ignored or timed out:", fsErr);
+    }
+
     if (!saved) {
-      throw new Error("게시물 등록에 실패했습니다.");
+      throw new Error("서버 및 데이터베이스 저장에 실패했습니다.");
     }
 
     $("postContentInput").value = "";
@@ -1792,7 +1813,7 @@ async function submitPost() {
     $("newPostDialog").close();
     showToast("라운지에 게시물이 등록되었습니다!");
     navigateTo("/feed");
-    loadFeedFromServer();
+    await loadFeedFromServer();
   } catch (err) {
     console.error("submit-post-error", err);
     showToast("게시물 등록 실패: " + (err.message || err.code || "알 수 없는 오류"));
